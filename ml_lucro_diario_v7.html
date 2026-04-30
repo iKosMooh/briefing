@@ -1,0 +1,1176 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Controle de Lucro Diário — Mercado Livre</title>
+<style>
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  :root{
+    --bg:#0f1117;--surface:#1a1d27;--surface2:#22263a;--border:#2e3350;
+    --accent:#4f8ef7;--accent-glow:rgba(79,142,247,0.18);
+    --green:#22c55e;--green-bg:rgba(34,197,94,0.12);
+    --red:#ef4444;--red-bg:rgba(239,68,68,0.12);
+    --yellow:#f59e0b;--purple:#a78bfa;
+    --text:#e2e8f0;--muted:#64748b;
+    --radius:12px;--shadow:0 4px 24px rgba(0,0,0,0.4)
+  }
+  body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;min-height:100vh;padding:24px 16px 80px}
+  header{text-align:center;margin-bottom:28px}
+  header h1{font-size:clamp(1.4rem,4vw,2rem);font-weight:700;background:linear-gradient(135deg,#4f8ef7,#a78bfa);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+  header p{color:var(--muted);font-size:.9rem;margin-top:4px}
+  #date-badge{display:inline-block;background:var(--surface2);border:1px solid var(--border);border-radius:20px;padding:4px 14px;font-size:.8rem;color:var(--muted);margin-top:10px}
+  .container{max-width:1020px;margin:0 auto}
+
+  /* Tabs */
+  .tabs{display:flex;gap:4px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:4px;margin-bottom:24px;flex-wrap:wrap}
+  .tab-btn{padding:8px 18px;border-radius:8px;border:none;background:transparent;color:var(--muted);font-size:.88rem;font-weight:600;cursor:pointer;transition:all .18s;white-space:nowrap}
+  .tab-btn.active{background:var(--accent);color:#fff}
+  .tab-btn:not(.active):hover{background:var(--surface2);color:var(--text)}
+  .tab-panel{display:none}
+  .tab-panel.active{display:block}
+
+  /* Modals */
+  .modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.78);z-index:1000;align-items:center;justify-content:center}
+  .modal-overlay.active{display:flex}
+  .modal-box{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:28px;max-width:500px;width:94%;box-shadow:var(--shadow);animation:popIn .2s ease;max-height:90vh;overflow-y:auto}
+  .modal-box-wide{max-width:660px}
+  @keyframes popIn{from{transform:scale(.92);opacity:0}to{transform:scale(1);opacity:1}}
+  .modal-icon{font-size:2rem;margin-bottom:10px;text-align:center}
+  .modal-title{font-size:1.05rem;font-weight:700;margin-bottom:4px;text-align:center}
+  .modal-sub{color:var(--muted);font-size:.85rem;margin-bottom:18px;text-align:center}
+  .modal-btns{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:20px}
+
+  /* Buttons */
+  .btn{display:inline-flex;align-items:center;gap:6px;padding:10px 20px;border-radius:8px;border:none;font-size:.9rem;font-weight:600;cursor:pointer;transition:all .18s}
+  .btn-primary{background:var(--accent);color:#fff}
+  .btn-primary:hover{background:#3b7de8;transform:translateY(-1px)}
+  .btn-success{background:var(--green);color:#fff}
+  .btn-success:hover{background:#16a34a;transform:translateY(-1px)}
+  .btn-danger{background:transparent;border:1px solid var(--red);color:var(--red)}
+  .btn-danger:hover{background:var(--red-bg)}
+  .btn-ghost{background:var(--surface2);border:1px solid var(--border);color:var(--text)}
+  .btn-ghost:hover{background:var(--border)}
+  .btn-warning{background:var(--yellow);color:#000;font-weight:700}
+  .btn-warning:hover{background:#d97706}
+  .btn-purple{background:var(--purple);color:#fff}
+  .btn-purple:hover{background:#8b5cf6}
+  .btn-sm{padding:6px 14px;font-size:.82rem}
+  .btn-xs{padding:4px 10px;font-size:.75rem}
+
+  /* Top actions */
+  .top-actions{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:24px;align-items:center;justify-content:space-between}
+  .top-actions .left-btns{display:flex;gap:10px;flex-wrap:wrap}
+
+  /* Ad card */
+  .ad-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:16px;transition:border-color .2s;animation:slideIn .2s ease}
+  @keyframes slideIn{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:translateY(0)}}
+  .ad-card:hover{border-color:var(--accent)}
+  .ad-card-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;gap:8px}
+  .ad-number{display:inline-flex;align-items:center;justify-content:center;min-width:26px;height:26px;border-radius:50%;background:var(--accent-glow);border:1px solid var(--accent);color:var(--accent);font-size:.75rem;font-weight:700;margin-right:8px;flex-shrink:0}
+  .ad-title-input{flex:1;background:transparent;border:none;color:var(--text);font-size:1rem;font-weight:600;outline:none;min-width:0}
+  .ad-title-input::placeholder{color:var(--muted);font-weight:400}
+  .fields-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:12px}
+  .field-group{display:flex;flex-direction:column;gap:4px}
+  .field-group label{font-size:.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+  .field-group input[type=number]{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:9px 12px;color:var(--text);font-size:.95rem;outline:none;width:100%;transition:border-color .18s;-moz-appearance:textfield}
+  .field-group input[type=number]::-webkit-outer-spin-button,
+  .field-group input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none}
+  .field-group input[type=number]:focus{border-color:var(--accent)}
+
+  /* Results */
+  #results-section{display:none;margin-top:32px}
+  #results-section h2{font-size:1.05rem;font-weight:600;margin-bottom:16px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+  .table-wrapper{overflow-x:auto;border-radius:var(--radius);border:1px solid var(--border)}
+  table{width:100%;border-collapse:collapse;font-size:.87rem}
+  thead tr{background:var(--surface2)}
+  thead th{padding:11px 13px;text-align:left;color:var(--muted);font-weight:600;font-size:.74rem;text-transform:uppercase;letter-spacing:.05em;white-space:nowrap}
+  tbody tr{border-top:1px solid var(--border);transition:background .15s}
+  tbody tr:hover{background:var(--surface2)}
+  tbody td{padding:11px 13px;white-space:nowrap}
+  .td-name{font-weight:600;max-width:160px;overflow:hidden;text-overflow:ellipsis}
+  .positive{color:var(--green);font-weight:600}
+  .negative{color:var(--red);font-weight:600}
+  .neutral{color:var(--muted)}
+
+  /* Summary cards */
+  .summary-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px;margin-top:20px}
+  .summary-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:18px 20px;position:relative;overflow:hidden;transition:transform .18s}
+  .summary-card:hover{transform:translateY(-2px)}
+  .summary-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px}
+  .card-bruto::before{background:linear-gradient(90deg,var(--accent),#a78bfa)}
+  .card-liquido::before{background:linear-gradient(90deg,var(--green),#34d399)}
+  .card-roas::before{background:linear-gradient(90deg,var(--yellow),#fbbf24)}
+  .card-receita::before{background:linear-gradient(90deg,#06b6d4,#3b82f6)}
+  .summary-card .card-label{font-size:.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px}
+  .summary-card .card-value{font-size:1.55rem;font-weight:700;line-height:1.1}
+  .summary-card .card-sub{font-size:.76rem;color:var(--muted);margin-top:5px}
+
+  /* Meta diária */
+  .meta-diaria-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:18px 20px;margin-bottom:20px}
+  .meta-diaria-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px}
+  .meta-diaria-top h3{font-size:.9rem;font-weight:700}
+
+  /* Metas mensais */
+  .metas-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:10px}
+  .metas-header h2{font-size:1.1rem;font-weight:700}
+  .meta-cards-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px}
+  .meta-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px;position:relative;overflow:hidden;transition:border-color .2s}
+  .meta-card.locked{opacity:.42;pointer-events:none}
+  .meta-card.achieved{border-color:var(--green)}
+  .meta-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px}
+  .meta-card-1::before{background:linear-gradient(90deg,#4f8ef7,#06b6d4)}
+  .meta-card-2::before{background:linear-gradient(90deg,var(--yellow),#f97316)}
+  .meta-card-3::before{background:linear-gradient(90deg,var(--purple),#ec4899)}
+  .meta-card-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+  .meta-badge{display:inline-flex;align-items:center;gap:6px;font-size:.8rem;font-weight:700;padding:3px 10px;border-radius:20px}
+  .meta-badge-1{background:rgba(79,142,247,.15);color:#4f8ef7;border:1px solid #4f8ef7}
+  .meta-badge-2{background:rgba(245,158,11,.15);color:var(--yellow);border:1px solid var(--yellow)}
+  .meta-badge-3{background:rgba(167,139,250,.15);color:var(--purple);border:1px solid var(--purple)}
+  .meta-locked-badge{font-size:.75rem;color:var(--muted);display:flex;align-items:center;gap:4px}
+  .meta-valores{display:flex;align-items:baseline;gap:6px;margin-bottom:14px}
+  .meta-atual{font-size:1.5rem;font-weight:700}
+  .meta-sep{color:var(--muted);font-size:1rem}
+  .meta-alvo{font-size:1rem;color:var(--muted)}
+  .meta-stats{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
+  .meta-stat{background:var(--surface2);border-radius:8px;padding:8px 10px}
+  .meta-stat-label{font-size:.68rem;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:2px}
+  .meta-stat-value{font-size:.9rem;font-weight:700}
+  .meta-projecao{margin-top:12px;padding:10px 12px;border-radius:8px;font-size:.8rem;border:1px solid}
+  .projecao-atras{background:rgba(239,68,68,.08);border-color:rgba(239,68,68,.3);color:var(--red)}
+  .projecao-frente{background:rgba(34,197,94,.08);border-color:rgba(34,197,94,.3);color:var(--green)}
+  .meta-achieved-banner{margin-top:12px;padding:10px 12px;border-radius:8px;background:var(--green-bg);border:1px solid var(--green);color:var(--green);font-size:.82rem;font-weight:600;text-align:center}
+
+  /* Progress bar */
+  .pbar-wrap{position:relative;height:14px;border-radius:99px;overflow:hidden;background:var(--surface2);border:1px solid var(--border)}
+  .pbar-ghost{position:absolute;left:0;top:0;height:100%;border-radius:99px;background:rgba(255,255,255,.13)}
+  .pbar-fill{position:absolute;left:0;top:0;height:100%;border-radius:99px;transition:width .5s ease}
+  .pbar-label{position:absolute;top:50%;transform:translateY(-50%);font-size:10px;font-weight:700;color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.7);white-space:nowrap}
+  .fill-blue{background:linear-gradient(90deg,#4f8ef7,#06b6d4)}
+  .fill-yellow{background:linear-gradient(90deg,var(--yellow),#f97316)}
+  .fill-purple{background:linear-gradient(90deg,var(--purple),#ec4899)}
+  .fill-green{background:linear-gradient(90deg,var(--green),#34d399)}
+
+  /* History */
+  .history-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:10px}
+  .history-header h2{font-size:1.1rem;font-weight:700}
+  .history-empty{text-align:center;padding:60px 20px;color:var(--muted)}
+  .history-empty .empty-icon{font-size:3rem;margin-bottom:12px}
+  .history-day{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);margin-bottom:12px;overflow:hidden;animation:slideIn .2s ease}
+  .history-day-header{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;cursor:pointer;gap:12px;transition:background .15s;flex-wrap:wrap}
+  .history-day-header:hover{background:var(--surface2)}
+  .history-day-date{font-weight:700;font-size:.95rem;display:flex;align-items:center;gap:8px}
+  .history-day-pills{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  .pill{padding:3px 10px;border-radius:20px;font-size:.78rem;font-weight:600;background:var(--surface2);border:1px solid var(--border)}
+  .pill-green{background:var(--green-bg);border-color:var(--green);color:var(--green)}
+  .pill-red{background:var(--red-bg);border-color:var(--red);color:var(--red)}
+  .pill-yellow{background:rgba(245,158,11,.12);border-color:var(--yellow);color:var(--yellow)}
+  .history-day-actions{display:flex;gap:6px;align-items:center}
+  .chevron{display:inline-block;transition:transform .2s;color:var(--muted);font-size:.8rem}
+  .history-day.open .chevron{transform:rotate(180deg)}
+  .history-day-body{display:none;border-top:1px solid var(--border);padding:16px 18px}
+  .history-day.open .history-day-body{display:block}
+
+  /* Edit modal */
+  .edit-ad-card{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:16px;margin-bottom:12px}
+  .edit-ad-title{font-weight:600;font-size:.9rem;margin-bottom:10px;color:var(--accent);display:flex;align-items:center;justify-content:space-between}
+  .edit-fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px}
+  .edit-field{display:flex;flex-direction:column;gap:3px}
+  .edit-field label{font-size:.7rem;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+  .edit-field input,.edit-name-input{background:var(--bg);border:1px solid var(--border);border-radius:7px;padding:7px 10px;color:var(--text);font-size:.88rem;outline:none;width:100%;-moz-appearance:textfield}
+  .edit-field input::-webkit-outer-spin-button,.edit-field input::-webkit-inner-spin-button{-webkit-appearance:none}
+  .edit-field input:focus,.edit-name-input:focus{border-color:var(--accent)}
+  .edit-name-input{font-weight:600;margin-bottom:10px}
+
+  /* Config modal */
+  .config-field{margin-bottom:16px}
+  .config-field label{display:block;font-size:.8rem;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px}
+  .config-field input{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 14px;color:var(--text);font-size:.95rem;outline:none;width:100%;-moz-appearance:textfield;transition:border-color .18s}
+  .config-field input[type=month]{-webkit-appearance:none}
+  .config-field input::-webkit-outer-spin-button,.config-field input::-webkit-inner-spin-button{-webkit-appearance:none}
+  .config-field input:focus{border-color:var(--accent)}
+  .config-field .hint{font-size:.75rem;color:var(--muted);margin-top:4px}
+  .config-sep{border:none;border-top:1px solid var(--border);margin:18px 0}
+  .config-section-title{font-size:.78rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:14px;font-weight:700}
+
+  /* Chart */
+  #chart-section{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:24px}
+  #chart-section h3{font-size:.85rem;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:16px}
+  #chart-canvas-wrap{position:relative;height:220px}
+  canvas#chartCanvas{width:100%!important;height:100%!important}
+
+  ::-webkit-scrollbar{width:6px;height:6px}
+  ::-webkit-scrollbar-track{background:var(--bg)}
+  ::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+
+  @media(max-width:520px){
+    .top-actions{flex-direction:column;align-items:stretch}
+    .top-actions .left-btns{flex-direction:column}
+    .btn{justify-content:center}
+    .tabs{width:100%}
+    .tab-btn{flex:1;text-align:center;padding:8px 6px}
+  }
+</style>
+</head>
+<body>
+
+<!-- Modal ontem -->
+<div class="modal-overlay" id="modal-ontem">
+  <div class="modal-box">
+    <div class="modal-icon">📅</div>
+    <div class="modal-title">Dados de ontem detectados</div>
+    <p class="modal-sub">Os dados são de <strong id="modal-date-info"></strong>. Deseja arquivar no histórico e começar hoje?</p>
+    <div class="modal-btns">
+      <button class="btn btn-success" onclick="archiveAndClear()">✅ Arquivar e limpar</button>
+      <button class="btn btn-ghost" onclick="keepYesterday()">📂 Manter</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal fechar dia -->
+<div class="modal-overlay" id="modal-fechar-dia">
+  <div class="modal-box">
+    <div class="modal-icon">📁</div>
+    <div class="modal-title">Fechar o Dia</div>
+    <p class="modal-sub">Arquiva os dados atuais no histórico para a data escolhida.</p>
+    <div class="config-field">
+      <label>📅 Data do dia</label>
+      <input type="date" id="fechar-dia-date" onchange="updateFecharPreview()" style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 14px;color:var(--text);font-size:.95rem;outline:none;width:100%;">
+    </div>
+    <div id="fechar-dia-preview" style="margin-top:4px;font-size:.82rem;color:var(--muted);"></div>
+    <div class="modal-btns">
+      <button class="btn btn-success" onclick="confirmarFecharDia()">✅ Arquivar e Limpar</button>
+      <button class="btn btn-ghost" onclick="closeModal('modal-fechar-dia')">✕ Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal config metas -->
+<div class="modal-overlay" id="modal-metas">
+  <div class="modal-box">
+    <div class="modal-icon">🎯</div>
+    <div class="modal-title">Configurar Metas</div>
+    <p class="modal-sub" id="modal-metas-mes"></p>
+
+    <div class="config-section-title">📅 Mês de Referência</div>
+    <div class="config-field">
+      <label>Mês / Ano</label>
+      <input type="month" id="cfg-mes" style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 14px;color:var(--text);font-size:.95rem;outline:none;width:100%;">
+    </div>
+
+    <hr class="config-sep">
+    <div class="config-section-title">🎯 Metas Mensais de Faturamento</div>
+    <div class="config-field">
+      <label>🥇 Meta 1 — Objetivo Principal (R$)</label>
+      <input type="number" id="cfg-meta1" min="0" step="100" placeholder="Ex: 15000">
+    </div>
+    <div class="config-field">
+      <label>🥈 Meta 2 — Desbloqueada ao bater Meta 1 (R$)</label>
+      <input type="number" id="cfg-meta2" min="0" step="100" placeholder="Ex: 20000">
+      <div class="hint">Opcional</div>
+    </div>
+    <div class="config-field">
+      <label>🥉 Meta 3 — Desbloqueada ao bater Meta 2 (R$)</label>
+      <input type="number" id="cfg-meta3" min="0" step="100" placeholder="Ex: 25000">
+      <div class="hint">Opcional</div>
+    </div>
+
+    <hr class="config-sep">
+    <div class="config-section-title">📆 Metas Diárias de Faturamento</div>
+    <div class="config-field">
+      <label>🥇 Meta Diária 1 — Objetivo (R$)</label>
+      <input type="number" id="cfg-meta-diaria" min="0" step="10" placeholder="Ex: 500">
+    </div>
+    <div class="config-field">
+      <label>🥈 Meta Diária 2 — Bônus, desbloqueada ao bater a 1 (R$)</label>
+      <input type="number" id="cfg-meta2-diaria" min="0" step="10" placeholder="Ex: 700">
+      <div class="hint">Opcional</div>
+    </div>
+    <div class="config-field">
+      <label>🥉 Meta Diária 3 — Super Bônus, desbloqueada ao bater a 2 (R$)</label>
+      <input type="number" id="cfg-meta3-diaria" min="0" step="10" placeholder="Ex: 1000">
+      <div class="hint">Opcional</div>
+    </div>
+
+    <div class="modal-btns">
+      <button class="btn btn-success" onclick="saveMetas()">💾 Salvar Metas</button>
+      <button class="btn btn-ghost" onclick="closeModal('modal-metas')">✕ Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal editar histórico -->
+<div class="modal-overlay" id="modal-edit">
+  <div class="modal-box modal-box-wide">
+    <div class="modal-icon">✏️</div>
+    <div class="modal-title">Editar dia do histórico</div>
+    <p class="modal-sub" id="edit-modal-date"></p>
+    <div id="edit-ads-container"></div>
+    <div style="margin-top:12px;border-top:1px solid var(--border);padding-top:12px;">
+      <button class="btn btn-ghost btn-sm" onclick="addEditAd()">＋ Adicionar anúncio</button>
+    </div>
+    <div class="modal-btns">
+      <button class="btn btn-success" onclick="saveEditedDay()">💾 Salvar alterações</button>
+      <button class="btn btn-ghost" onclick="closeModal('modal-edit')">✕ Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<div class="container">
+  <header>
+    <h1>📊 Controle de Lucro Diário</h1>
+    <p>Mercado Livre · Múltiplos Anúncios</p>
+    <div id="date-badge">📆 Carregando...</div>
+  </header>
+
+  <div class="tabs">
+    <button class="tab-btn active" id="tab-btn-hoje" onclick="switchTab('hoje')">📋 Hoje</button>
+    <button class="tab-btn" id="tab-btn-metas" onclick="switchTab('metas')">🎯 Metas</button>
+    <button class="tab-btn" id="tab-btn-custos" onclick="switchTab('custos')">💸 Custos</button>
+    <button class="tab-btn" id="tab-btn-historico" onclick="switchTab('historico')">🗂 Histórico</button>
+  </div>
+
+  <!-- TAB HOJE -->
+  <div id="tab-hoje" class="tab-panel active">
+    <div id="meta-diaria-wrap"></div>
+    <div class="top-actions">
+      <div class="left-btns">
+        <button class="btn btn-primary" onclick="addAd()">＋ Adicionar Anúncio</button>
+        <button class="btn btn-success" onclick="calculateAll()">⚡ Calcular Tudo</button>
+      </div>
+      <button class="btn btn-warning" onclick="openFecharDia()">📁 Fechar o Dia</button>
+      <button class="btn btn-danger" onclick="confirmClearAll()">🗑 Limpar Tudo</button>
+    </div>
+    <div id="ads-container"></div>
+    <div id="results-section">
+      <h2>📊 Resultado por Anúncio</h2>
+      <div class="table-wrapper">
+        <table>
+          <thead><tr>
+            <th>Anúncio</th><th>Faturamento</th><th>CMV</th>
+            <th>L. Bruto</th><th>Ads</th><th>L. Líquido</th>
+            <th>Margem</th><th>ROAS</th>
+          </tr></thead>
+          <tbody id="results-body"></tbody>
+        </table>
+      </div>
+      <div id="custos-dia-row" style="display:none;margin-top:12px;padding:12px 16px;background:rgba(239,68,68,.07);border:1px solid rgba(239,68,68,.25);border-radius:10px;font-size:.85rem;color:#ef4444;"></div>
+      <div class="summary-grid" id="summary-grid"></div>
+    </div>
+  </div>
+
+  <!-- TAB METAS -->
+  <div id="tab-metas" class="tab-panel">
+    <div class="metas-header">
+      <h2>🎯 Metas do Mês</h2>
+      <button class="btn btn-purple btn-sm" onclick="openConfigMetas()">⚙️ Configurar Metas</button>
+    </div>
+    <div id="metas-container"></div>
+  </div>
+
+  <!-- TAB CUSTOS -->
+  <div id="tab-custos" class="tab-panel">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:10px;">
+      <h2 style="font-size:1.1rem;font-weight:700;">💸 Custos Operacionais</h2>
+      <button class="btn btn-primary btn-sm" onclick="addCusto()">＋ Adicionar Custo</button>
+    </div>
+    <div style="font-size:.82rem;color:var(--muted);margin-bottom:16px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 16px;">
+      💡 <strong>Diário</strong> = desconta todo dia do lucro líquido &nbsp;·&nbsp;
+      <strong>Mensal</strong> = total mensal (aparece nas metas) &nbsp;·&nbsp;
+      <strong>Avulso</strong> = descontado apenas na data informada
+    </div>
+    <div id="custos-list"></div>
+    <div id="custos-totais" style="margin-top:16px;"></div>
+  </div>
+
+  <!-- TAB HISTÓRICO -->
+  <div id="tab-historico" class="tab-panel">
+    <div id="chart-section" style="display:none;">
+      <h3>📈 Evolução do Faturamento</h3>
+      <div id="chart-canvas-wrap"><canvas id="chartCanvas"></canvas></div>
+    </div>
+    <div class="history-header">
+      <h2>🗂 Histórico de Dias</h2>
+      <button class="btn btn-danger btn-sm" onclick="confirmClearHistory()">🗑 Limpar Histórico</button>
+    </div>
+    <div id="history-list"></div>
+  </div>
+</div>
+
+<script>
+const STORAGE_KEY='ml_lucro_diario';
+const HISTORY_KEY='ml_lucro_historico';
+const METAS_KEY='ml_metas_v2';
+const COSTS_KEY='ml_custos_v1';
+let adCount=0,_pendingSaved=null,_editingIdx=-1,_editAdCount=0;
+// live faturamento do dia (atualizado ao calcular, sem precisar arquivar)
+let _liveFaturamento=0;
+let _liveCustos=0;
+
+// ── Utils ──────────────────────────────────────────────────────
+function todayStr(){return new Date().toISOString().slice(0,10)}
+function mesAtual(){return new Date().toISOString().slice(0,7)}
+function formatDateBR(iso){const[y,m,d]=iso.split('-');return d+'/'+m+'/'+y}
+function formatMesBR(ym){const[y,m]=ym.split('-');return new Date(+y,+m-1,1).toLocaleDateString('pt-BR',{month:'long',year:'numeric'})}
+function formatDateLong(iso){const[y,m,d]=iso.split('-');return new Date(+y,+m-1,+d).toLocaleDateString('pt-BR',{weekday:'long',day:'2-digit',month:'long',year:'numeric'})}
+function escHtml(s){return String(s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
+function fmtBRL(v){return 'R$ '+v.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})}
+function colorClass(v){return v>0?'positive':v<0?'negative':'neutral'}
+function clamp(v,a,b){return Math.max(a,Math.min(b,v))}
+function diasNoMes(ym){const[y,m]=ym.split('-').map(Number);return new Date(y,m,0).getDate()}
+function diaAtualNoMes(){return new Date().getDate()}
+
+function loadCosts(){try{return JSON.parse(localStorage.getItem(COSTS_KEY))||[]}catch{return[]}}
+function saveCosts(c){localStorage.setItem(COSTS_KEY,JSON.stringify(c))}
+function getTotalCustosDia(){
+  // sum daily costs + today's one-time costs
+  const c=loadCosts();
+  return c.reduce((s,item)=>{
+    if(item.freq==='diario') return s+(parseFloat(item.valor)||0);
+    if(item.freq==='avulso'&&item.data===todayStr()) return s+(parseFloat(item.valor)||0);
+    return s;
+  },0);
+}
+function getTotalCustosMes(mes){
+  const c=loadCosts();
+  return c.reduce((s,item)=>{
+    if(item.freq==='diario') return s+(parseFloat(item.valor)||0)*diasNoMes(mes);
+    if(item.freq==='mensal') return s+(parseFloat(item.valor)||0);
+    if(item.freq==='avulso'&&item.data&&item.data.startsWith(mes)) return s+(parseFloat(item.valor)||0);
+    return s;
+  },0);
+}
+
+function updateDateBadge(){
+  const s=new Date().toLocaleDateString('pt-BR',{weekday:'long',day:'2-digit',month:'long',year:'numeric'});
+  document.getElementById('date-badge').textContent='📆 '+s.charAt(0).toUpperCase()+s.slice(1);
+}
+
+// ── Tabs ───────────────────────────────────────────────────────
+function switchTab(name){
+  ['hoje','metas','custos','historico'].forEach(t=>{
+    document.getElementById('tab-'+t).classList.toggle('active',t===name);
+    document.getElementById('tab-btn-'+t).classList.toggle('active',t===name);
+  });
+  if(name==='historico') renderHistory();
+  if(name==='metas') renderMetas(_liveFaturamento);
+  if(name==='hoje') renderMetaDiaria(_liveFaturamento);
+  if(name==='custos') renderCustos();
+}
+
+// ── Storage ────────────────────────────────────────────────────
+function saveData(){localStorage.setItem(STORAGE_KEY,JSON.stringify({date:todayStr(),ads:collectInputData()}))}
+function loadData(){try{return JSON.parse(localStorage.getItem(STORAGE_KEY))}catch{return null}}
+function loadHistory(){try{return JSON.parse(localStorage.getItem(HISTORY_KEY))||[]}catch{return[]}}
+function saveHistory(h){localStorage.setItem(HISTORY_KEY,JSON.stringify(h))}
+function loadMetas(){try{return JSON.parse(localStorage.getItem(METAS_KEY))||{}}catch{return{}}}
+
+// ── Compute per-ad ─────────────────────────────────────────────
+// precoVenda = real selling price (for faturamento)
+// retorno    = net return per unit after ML fees (for profit calc)
+// custo      = unit cost
+function computeAd(a){
+  const preco  = parseFloat(a.preco)  ||0; // preço de venda
+  const retorno= parseFloat(a.retorno)||0; // retorno líquido por unidade
+  const custo  = parseFloat(a.custo)  ||0;
+  const vendas = parseInt(a.vendas)   ||0;
+  const adsp   = parseFloat(a.ads)    ||0;
+  const faturamento = preco  * vendas;     // RECEITA REAL
+  const cmv         = custo  * vendas;
+  const bruto       = (retorno - custo) * vendas;
+  const liquido     = bruto - adsp;
+  const margem      = faturamento>0 ? (liquido/faturamento)*100 : 0;
+  const roas        = adsp>0 ? faturamento/adsp : null;
+  return{name:a.name||'Sem nome',faturamento,cmv,bruto,liquido,margem,ads:adsp,roas};
+}
+
+function computeSummary(adsRaw){
+  let tF=0,tCMV=0,tB=0,tL=0,tA=0;
+  const ads=adsRaw.map(a=>{
+    const r=computeAd(a);
+    tF+=r.faturamento;tCMV+=r.cmv;tB+=r.bruto;tL+=r.liquido;tA+=r.ads;
+    return r;
+  });
+  return{ads,totalFaturamento:tF,totalCMV:tCMV,totalBruto:tB,totalLiquido:tL,
+    totalAds:tA,totalRoas:tA>0?tF/tA:null,totalMargem:tF>0?(tL/tF)*100:0};
+}
+
+// ── Archive ────────────────────────────────────────────────────
+function archiveDayData(saved){
+  const hist=loadHistory();
+  const s=computeSummary(saved.ads||[]);
+  const entry={date:saved.date,...s,_raw:saved.ads||[]};
+  const idx=hist.findIndex(h=>h.date===saved.date);
+  if(idx>=0)hist[idx]=entry;else hist.unshift(entry);
+  hist.sort((a,b)=>b.date.localeCompare(a.date));
+  hist.splice(90);
+  saveHistory(hist);
+}
+
+function archiveAndClear(){
+  if(_pendingSaved)archiveDayData(_pendingSaved);
+  closeModal('modal-ontem');
+  document.getElementById('ads-container').innerHTML='';
+  document.getElementById('results-section').style.display='none';
+  adCount=0;_liveFaturamento=0;localStorage.removeItem(STORAGE_KEY);addDefaultAd();_pendingSaved=null;
+  renderMetaDiaria(0);renderMetas(0);
+}
+function keepYesterday(){
+  closeModal('modal-ontem');
+  _pendingSaved=null;
+  try{
+    const saved=loadData();
+    if(saved&&saved.ads){
+      const s=computeSummary(saved.ads);
+      _liveFaturamento=s.totalFaturamento;
+      renderMetaDiaria(_liveFaturamento);
+      renderMetas(_liveFaturamento);
+    }
+  }catch(e){}
+}
+
+// ── Modals ─────────────────────────────────────────────────────
+function openModal(id){document.getElementById(id).classList.add('active')}
+function closeModal(id){document.getElementById(id).classList.remove('active')}
+
+// ── Today ads ─────────────────────────────────────────────────
+function addAd(data=null){
+  adCount++;const id=adCount;
+  const card=document.createElement('div');
+  card.className='ad-card';card.id='ad-'+id;card.dataset.id=id;
+  card.innerHTML=`
+    <div class="ad-card-header">
+      <span class="ad-number">${id}</span>
+      <input type="text" class="ad-title-input" placeholder="Nome do anúncio"
+        value="${escHtml(data?data.name||'':'')}" data-field="name" oninput="saveData()">
+      <button class="btn btn-danger btn-sm" onclick="removeAd(${id})">✕ Remover</button>
+    </div>
+    <div class="fields-grid">
+      <div class="field-group"><label>🏷️ Preço de venda (R$)</label>
+        <input type="number" min="0" step="0.01" placeholder="0,00"
+          value="${data?escHtml(data.preco||''):''}" data-field="preco" oninput="saveData()"></div>
+      <div class="field-group"><label>📥 Retorno líquido/unidade (R$)</label>
+        <input type="number" min="0" step="0.01" placeholder="0,00"
+          value="${data?escHtml(data.retorno||''):''}" data-field="retorno" oninput="saveData()"></div>
+      <div class="field-group"><label>💰 Custo/unidade (R$)</label>
+        <input type="number" min="0" step="0.01" placeholder="0,00"
+          value="${data?escHtml(data.custo||''):''}" data-field="custo" oninput="saveData()"></div>
+      <div class="field-group"><label>🛒 Nº de vendas</label>
+        <input type="number" min="0" step="1" placeholder="0"
+          value="${data?escHtml(data.vendas||''):''}" data-field="vendas" oninput="saveData()"></div>
+      <div class="field-group"><label>📢 Gasto com Ads (R$)</label>
+        <input type="number" min="0" step="0.01" placeholder="0,00"
+          value="${data?escHtml(data.ads||''):''}" data-field="ads" oninput="saveData()"></div>
+    </div>`;
+  document.getElementById('ads-container').appendChild(card);
+  updateNumbers();
+}
+function removeAd(id){const el=document.getElementById('ad-'+id);if(el){el.remove();saveData();updateNumbers()}}
+function updateNumbers(){document.querySelectorAll('.ad-card').forEach((c,i)=>c.querySelector('.ad-number').textContent=i+1)}
+function collectInputData(){
+  return Array.from(document.querySelectorAll('.ad-card')).map(c=>({
+    name:   c.querySelector('[data-field="name"]').value.trim(),
+    preco:  c.querySelector('[data-field="preco"]').value,
+    retorno:c.querySelector('[data-field="retorno"]').value,
+    custo:  c.querySelector('[data-field="custo"]').value,
+    vendas: c.querySelector('[data-field="vendas"]').value,
+    ads:    c.querySelector('[data-field="ads"]').value,
+  }));
+}
+
+// ── Calculate today ────────────────────────────────────────────
+function calculateAll(){
+  const cards=document.querySelectorAll('.ad-card');
+  if(!cards.length){alert('Adicione pelo menos um anúncio.');return}
+  const tbody=document.getElementById('results-body');
+  tbody.innerHTML='';
+  let tF=0,tCMV=0,tB=0,tL=0,tA=0;
+  cards.forEach(c=>{
+    const raw={
+      name:   c.querySelector('[data-field="name"]').value.trim()||'Sem nome',
+      preco:  c.querySelector('[data-field="preco"]').value,
+      retorno:c.querySelector('[data-field="retorno"]').value,
+      custo:  c.querySelector('[data-field="custo"]').value,
+      vendas: c.querySelector('[data-field="vendas"]').value,
+      ads:    c.querySelector('[data-field="ads"]').value,
+    };
+    const r=computeAd(raw);
+    tF+=r.faturamento;tCMV+=r.cmv;tB+=r.bruto;tL+=r.liquido;tA+=r.ads;
+    const roasTxt=r.roas!==null?r.roas.toFixed(2)+'x':'—';
+    const roasCls=r.roas!==null?(r.roas>=1?'positive':'negative'):'neutral';
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td class="td-name">${escHtml(raw.name)}</td>
+      <td class="positive">${fmtBRL(r.faturamento)}</td>
+      <td class="negative">${fmtBRL(r.cmv)}</td>
+      <td class="${colorClass(r.bruto)}">${fmtBRL(r.bruto)}</td>
+      <td class="negative">${fmtBRL(r.ads)}</td>
+      <td class="${colorClass(r.liquido)}">${fmtBRL(r.liquido)}</td>
+      <td class="${r.margem>=10?'positive':r.margem>0?'neutral':'negative'}">${r.margem.toFixed(1)}%</td>
+      <td class="${roasCls}">${roasTxt}</td>`;
+    tbody.appendChild(tr);
+  });
+  const tRoas=tA>0?tF/tA:null;
+  const tMargem=tF>0?(tL/tF)*100:0;
+  // Operational costs
+  const custosRow=document.getElementById('custos-dia-row');
+  const totalCustosDia=getTotalCustosDia();
+  const tLiqFinal=tL-totalCustosDia;
+  const tMargemFinal=tF>0?(tLiqFinal/tF)*100:0;
+  if(totalCustosDia>0){
+    const costsItems=loadCosts().filter(c=>c.freq==='diario'||(c.freq==='avulso'&&c.data===todayStr()));
+    custosRow.style.display='block';
+    custosRow.innerHTML='💸 <strong>Custos Operacionais do Dia:</strong> '
+      +costsItems.map(c=>`${escHtml(c.nome)}: ${fmtBRL(parseFloat(c.valor)||0)}`).join(' · ')
+      +' &nbsp;→&nbsp; <strong>Total: −'+fmtBRL(totalCustosDia)+'</strong>';
+  } else { custosRow.style.display='none'; }
+  document.getElementById('summary-grid').innerHTML=`
+    <div class="summary-card card-receita">
+      <div class="card-label">💵 Faturamento Total</div>
+      <div class="card-value positive">${fmtBRL(tF)}</div>
+      <div class="card-sub">CMV: ${fmtBRL(tCMV)}</div>
+    </div>
+    <div class="summary-card card-bruto">
+      <div class="card-label">💼 Lucro Bruto</div>
+      <div class="card-value ${colorClass(tB)}">${fmtBRL(tB)}</div>
+      <div class="card-sub">Antes dos Ads</div>
+    </div>
+    <div class="summary-card card-liquido">
+      <div class="card-label">✅ Lucro Líquido</div>
+      <div class="card-value ${colorClass(tLiqFinal)}">${fmtBRL(tLiqFinal)}</div>
+      <div class="card-sub">Margem: ${tMargemFinal.toFixed(1)}%${totalCustosDia>0?' · Custos op: −'+fmtBRL(totalCustosDia):''}</div>
+    </div>
+    <div class="summary-card card-roas">
+      <div class="card-label">📢 ROAS Total</div>
+      <div class="card-value ${tRoas!==null?(tRoas>=1?'positive':'negative'):'neutral'}">${tRoas!==null?tRoas.toFixed(2)+'x':'—'}</div>
+      <div class="card-sub">Faturamento ÷ Ads</div>
+    </div>`;
+  document.getElementById('results-section').style.display='block';
+  _liveFaturamento=tF;
+  _liveCustos=totalCustosDia;
+  renderMetaDiaria(tF);
+  renderMetas(tF);
+  document.getElementById('results-section').scrollIntoView({behavior:'smooth',block:'start'});
+}
+
+function confirmClearAll(){
+  if(confirm('Apagar dados de hoje? O histórico é mantido.')){
+    document.getElementById('ads-container').innerHTML='';
+    document.getElementById('results-section').style.display='none';
+    adCount=0;_liveFaturamento=0;localStorage.removeItem(STORAGE_KEY);addDefaultAd();
+    renderMetaDiaria(0);renderMetas(0);
+  }
+}
+
+// ── Meta Diária ────────────────────────────────────────────────
+function renderMetaDiaria(fat){
+  const m=loadMetas();
+  const wrap=document.getElementById('meta-diaria-wrap');
+  const m1=parseFloat(m.metaDiaria)||0;
+  const m2=parseFloat(m.meta2Diaria)||0;
+  const m3=parseFloat(m.meta3Diaria)||0;
+  if(!m1){wrap.innerHTML='';return}
+  const m1ok=fat>=m1,m2ok=m2&&fat>=m2,m3ok=m3&&fat>=m3;
+
+  function bar(num,alvo,atual,desbloqueada,atingida,fillCls,label){
+    if(!alvo)return'';
+    const pct=clamp((atual/alvo)*100,0,100);
+    const falta=Math.max(alvo-atual,0);
+    const cor=atingida?'fill-green':fillCls;
+    const icons=['🥇','🥈','🥉'];
+    if(!desbloqueada) return `
+      <div style="margin-bottom:${num<3?'12px':'0'};opacity:.45;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;">
+          <span style="font-size:.8rem;font-weight:700;">${icons[num-1]} Meta Diária ${num} — ${label}</span>
+          <span style="font-size:.75rem;color:var(--muted);">🔒 Bata a Meta ${num-1}</span>
+        </div>
+        <div class="pbar-wrap"><div class="pbar-fill ${cor}" style="width:0%"></div></div>
+      </div>`;
+    return `
+      <div style="margin-bottom:${num<3?'12px':'0'};">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;">
+          <span style="font-size:.8rem;font-weight:700;">${icons[num-1]} Meta Diária ${num} — ${label}</span>
+          <span style="font-size:.8rem;color:var(--muted);">${fmtBRL(atual)} / ${fmtBRL(alvo)}</span>
+        </div>
+        <div class="pbar-wrap">
+          <div class="pbar-fill ${cor}" style="width:${pct}%"></div>
+          <div class="pbar-label" style="left:${clamp(pct,2,85)}%;padding-left:5px;">${pct.toFixed(0)}%</div>
+        </div>
+        <div style="margin-top:4px;font-size:.78rem;">
+          ${atingida
+            ?'<span style="color:var(--green);font-weight:600;">✅ Meta atingida!</span>'
+            :`<span style="color:var(--muted);">Faltam <strong style="color:var(--text)">${fmtBRL(falta)}</strong></span>`}
+        </div>
+      </div>`;
+  }
+
+  wrap.innerHTML=`<div class="meta-diaria-card">
+    <div class="meta-diaria-top"><h3>📆 Metas Diárias de Faturamento</h3></div>
+    ${bar(1,m1,fat,true,m1ok,'fill-blue','Objetivo')}
+    ${m2?bar(2,m2,fat,m1ok,m2ok,'fill-yellow','Bônus'):''}
+    ${m3?bar(3,m3,fat,m2ok,m3ok,'fill-purple','Super Bônus'):''}
+  </div>`;
+}
+
+// ── Metas mensais ──────────────────────────────────────────────
+function renderMetas(extraFat){
+  if(extraFat===undefined)extraFat=_liveFaturamento;
+  const metas=loadMetas();
+  const cont=document.getElementById('metas-container');
+  if(!metas.meta1){
+    cont.innerHTML=`<div class="history-empty"><div class="empty-icon">🎯</div>
+      <p>Nenhuma meta configurada.<br>Clique em <strong>⚙️ Configurar Metas</strong>.</p></div>`;
+    return;
+  }
+  const mes=metas.mes||mesAtual();
+  const totalDias=diasNoMes(mes);
+  const diaHoje=mes===mesAtual()?diaAtualNoMes():totalDias;
+  // faturamento histórico + live de hoje (evita contar hoje duas vezes)
+  const hist=loadHistory();
+  const fatHist=hist.filter(d=>d.date.startsWith(mes)).reduce((s,d)=>s+d.totalFaturamento,0);
+  const faturado=fatHist+(mes===mesAtual()?extraFat:0);
+
+  const projecaoFinal=diaHoje>0?(faturado/diaHoje)*totalDias:0;
+  const expectedHoje=(metas.meta1/totalDias)*diaHoje;
+  const diffReais=faturado-expectedHoje;
+  const diffPct=expectedHoje>0?(diffReais/expectedHoje)*100:0;
+  const pctAtual=(faturado/metas.meta1)*100;
+  const pctEsperado=(expectedHoje/metas.meta1)*100;
+
+  const meta1ok=faturado>=metas.meta1;
+  const meta2ok=metas.meta2&&faturado>=metas.meta2;
+  const meta3ok=metas.meta3&&faturado>=metas.meta3;
+
+  function buildCard(num,alvo,atual,desbloqueada,atingida,fillCls,label){
+    if(!alvo)return'';
+    const pct=clamp((atual/alvo)*100,0,100);
+    const pctExp=num===1?clamp(pctEsperado,0,100):0;
+    const falta=Math.max(alvo-atual,0);
+    const cor=atingida?'fill-green':fillCls;
+    const icons=['🥇','🥈','🥉'];
+    const badgeCls=['meta-badge-1','meta-badge-2','meta-badge-3'][num-1];
+
+    let projecaoHtml='';
+    if(desbloqueada&&!atingida){
+      const sinal=diffReais>=0?'+':'';
+      const cls=diffReais>=0?'projecao-frente':'projecao-atras';
+      if(num===1){
+        projecaoHtml=`<div class="meta-projecao ${cls}" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+          <div>
+            <div style="font-size:.68rem;opacity:.7;margin-bottom:2px;text-transform:uppercase;letter-spacing:.04em;">Diferença da projeção</div>
+            <div style="font-size:1rem;font-weight:700;">${diffReais>=0?'📈':'📉'} ${sinal}${fmtBRL(Math.abs(diffReais))}</div>
+            <div style="font-size:.72rem;opacity:.75;">${sinal}${diffPct.toFixed(1)}% vs esperado</div>
+          </div>
+          <div>
+            <div style="font-size:.68rem;opacity:.7;margin-bottom:2px;text-transform:uppercase;letter-spacing:.04em;">Projeção de fechamento</div>
+            <div style="font-size:1rem;font-weight:700;">${fmtBRL(projecaoFinal)}</div>
+            <div style="font-size:.72rem;opacity:.75;">${projecaoFinal>=alvo?'✅ No ritmo':'⚠️ Abaixo da meta'}</div>
+          </div>
+        </div>`;
+      } else {
+        projecaoHtml=`<div class="meta-projecao ${projecaoFinal>=alvo?'projecao-frente':'projecao-atras'}">
+          Projeção de fechamento: <strong>${fmtBRL(projecaoFinal)}</strong>
+          — ${projecaoFinal>=alvo?'✅ no ritmo para bater':'⚠️ abaixo desta meta'}
+        </div>`;
+      }
+    }
+
+    const statsHtml=desbloqueada?`
+      <div class="meta-stats">
+        <div class="meta-stat"><div class="meta-stat-label">Faturado</div><div class="meta-stat-value positive">${fmtBRL(atual)}</div></div>
+        <div class="meta-stat"><div class="meta-stat-label">Faltam</div><div class="meta-stat-value ${atingida?'positive':'negative'}">${atingida?'✅ Batida!':fmtBRL(falta)}</div></div>
+        <div class="meta-stat"><div class="meta-stat-label">Dias no mês</div><div class="meta-stat-value">${diaHoje} / ${totalDias}</div></div>
+        <div class="meta-stat"><div class="meta-stat-label">Média/dia necessária</div><div class="meta-stat-value">${atingida?'—':fmtBRL(falta/Math.max(totalDias-diaHoje,1))}</div></div>
+      </div>`:'';
+
+    const barHtml=desbloqueada?`
+      <div style="margin-bottom:4px;">
+        <div class="pbar-wrap" style="height:14px;">
+          ${num===1&&!atingida?`<div class="pbar-ghost" style="width:${pctExp}%"></div>`:''}
+          <div class="pbar-fill ${cor}" style="width:${pct}%"></div>
+          <div class="pbar-label" style="left:${clamp(pct,2,80)}%;padding-left:5px;">${pct.toFixed(1)}%</div>
+          ${num===1&&!atingida&&pctExp>pct+5?`<div class="pbar-label" style="left:${clamp(pctExp,pct+6,94)}%;padding-left:5px;color:rgba(255,255,255,.5);">${pctExp.toFixed(1)}%</div>`:''}
+        </div>
+      </div>`:'';
+
+    return `<div class="meta-card meta-card-${num} ${!desbloqueada?'locked':''} ${atingida?'achieved':''}">
+      <div class="meta-card-top">
+        <span class="meta-badge ${badgeCls}">${icons[num-1]} Meta ${num} — ${label}</span>
+        ${!desbloqueada?`<span class="meta-locked-badge">🔒 Bloqueada</span>`:''}
+        ${atingida?`<span class="meta-locked-badge" style="color:var(--green);">🏆 Atingida</span>`:''}
+      </div>
+      <div class="meta-valores">
+        <span class="meta-atual ${colorClass(atual)}">${fmtBRL(atual)}</span>
+        <span class="meta-sep">/</span>
+        <span class="meta-alvo">${fmtBRL(alvo)}</span>
+      </div>
+      ${barHtml}
+      ${statsHtml}
+      ${projecaoHtml}
+      ${atingida?`<div class="meta-achieved-banner">🏆 Meta ${num} atingida! Parabéns!</div>`:''}
+      ${!desbloqueada?`<div style="text-align:center;padding:16px 0;color:var(--muted);font-size:.85rem;">🔒 Bata a Meta ${num-1} para desbloquear</div>`:''}
+    </div>`;
+  }
+
+  const mesLabel=formatMesBR(mes);
+  cont.innerHTML=`
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;flex-wrap:wrap;gap:8px;">
+      <div style="font-size:.85rem;color:var(--muted);">📅 ${mesLabel.charAt(0).toUpperCase()+mesLabel.slice(1)}</div>
+      <div style="font-size:.85rem;color:var(--muted);">Faturamento acumulado: <strong style="color:var(--text)">${fmtBRL(faturado)}</strong></div>
+    </div>
+    <div class="meta-cards-grid">
+      ${buildCard(1,metas.meta1,faturado,true,meta1ok,'fill-blue','Objetivo Principal')}
+      ${buildCard(2,metas.meta2,faturado,meta1ok,meta2ok,'fill-yellow','Desbloqueada')}
+      ${buildCard(3,metas.meta3,faturado,meta2ok,meta3ok,'fill-purple','Desbloqueada')}
+    </div>`;
+}
+
+// ── Config metas ───────────────────────────────────────────────
+function openConfigMetas(){
+  const m=loadMetas();
+  document.getElementById('cfg-mes').value=m.mes||mesAtual();
+  document.getElementById('cfg-meta1').value=m.meta1||'';
+  document.getElementById('cfg-meta2').value=m.meta2||'';
+  document.getElementById('cfg-meta3').value=m.meta3||'';
+  document.getElementById('cfg-meta-diaria').value=m.metaDiaria||'';
+  document.getElementById('cfg-meta2-diaria').value=m.meta2Diaria||'';
+  document.getElementById('cfg-meta3-diaria').value=m.meta3Diaria||'';
+  document.getElementById('modal-metas-mes').textContent=m.mes?'Configurando: '+formatMesBR(m.mes):'Nenhuma meta configurada ainda';
+  openModal('modal-metas');
+}
+
+function saveMetas(){
+  const mes=document.getElementById('cfg-mes').value||mesAtual();
+  const m1=parseFloat(document.getElementById('cfg-meta1').value)||0;
+  const m2=parseFloat(document.getElementById('cfg-meta2').value)||0;
+  const m3=parseFloat(document.getElementById('cfg-meta3').value)||0;
+  const md1=parseFloat(document.getElementById('cfg-meta-diaria').value)||0;
+  const md2=parseFloat(document.getElementById('cfg-meta2-diaria').value)||0;
+  const md3=parseFloat(document.getElementById('cfg-meta3-diaria').value)||0;
+  if(!m1){alert('Informe pelo menos a Meta 1.');return}
+  localStorage.setItem(METAS_KEY,JSON.stringify({mes,meta1:m1,meta2:m2||null,meta3:m3||null,
+    metaDiaria:md1||null,meta2Diaria:md2||null,meta3Diaria:md3||null}));
+  closeModal('modal-metas');
+  renderMetas(_liveFaturamento);
+  renderMetaDiaria(_liveFaturamento);
+}
+
+// ── History ────────────────────────────────────────────────────
+function renderHistory(){
+  const hist=loadHistory();
+  const list=document.getElementById('history-list');
+  const chartSec=document.getElementById('chart-section');
+  if(!hist.length){
+    chartSec.style.display='none';
+    list.innerHTML=`<div class="history-empty"><div class="empty-icon">📭</div><p>Nenhum dia arquivado ainda.</p></div>`;
+    return;
+  }
+  chartSec.style.display='block';drawChart(hist);list.innerHTML='';
+  hist.forEach((day,idx)=>{
+    const pillFat=`<span class="pill pill-green">💵 ${fmtBRL(day.totalFaturamento||0)}</span>`;
+    const pillLiq=day.totalLiquido>=0
+      ?`<span class="pill pill-green">✅ ${fmtBRL(day.totalLiquido)}</span>`
+      :`<span class="pill pill-red">✅ ${fmtBRL(day.totalLiquido)}</span>`;
+    const pillRoas=day.totalRoas!==null
+      ?`<span class="pill pill-yellow">📢 ${day.totalRoas.toFixed(2)}x</span>`
+      :`<span class="pill">📢 —</span>`;
+    const adRows=(day.ads||[]).map(a=>`<tr>
+      <td class="td-name">${escHtml(a.name)}</td>
+      <td class="positive">${fmtBRL(a.faturamento||0)}</td>
+      <td class="negative">${fmtBRL(a.cmv||0)}</td>
+      <td class="${colorClass(a.bruto)}">${fmtBRL(a.bruto)}</td>
+      <td class="negative">${fmtBRL(a.ads)}</td>
+      <td class="${colorClass(a.liquido)}">${fmtBRL(a.liquido)}</td>
+      <td class="${(a.margem||0)>=10?'positive':(a.margem||0)>0?'neutral':'negative'}">${(a.margem||0).toFixed(1)}%</td>
+      <td class="${a.roas!==null?(a.roas>=1?'positive':'negative'):'neutral'}">${a.roas!==null?a.roas.toFixed(2)+'x':'—'}</td>
+    </tr>`).join('');
+    const div=document.createElement('div');div.className='history-day';div.id='hday-'+idx;
+    div.innerHTML=`
+      <div class="history-day-header" onclick="toggleDay(${idx})">
+        <div class="history-day-date"><span>📅</span><span>${formatDateLong(day.date)}</span></div>
+        <div class="history-day-pills">${pillFat}${pillLiq}${pillRoas}<span class="pill">${(day.ads||[]).length} anúncios</span></div>
+        <div class="history-day-actions">
+          <button class="btn btn-warning btn-xs" onclick="event.stopPropagation();openEditModal(${idx})">✏️ Editar</button>
+          <button class="btn btn-danger btn-xs" onclick="event.stopPropagation();deleteHistoryDay(${idx})">🗑</button>
+          <span class="chevron">▼</span>
+        </div>
+      </div>
+      <div class="history-day-body">
+        <div class="table-wrapper" style="margin-bottom:14px;">
+          <table>
+            <thead><tr><th>Anúncio</th><th>Faturamento</th><th>CMV</th><th>L.Bruto</th><th>Ads</th><th>L.Líquido</th><th>Margem</th><th>ROAS</th></tr></thead>
+            <tbody>${adRows}</tbody>
+          </table>
+        </div>
+        <div class="summary-grid" style="margin-top:0;">
+          <div class="summary-card card-receita"><div class="card-label">💵 Faturamento</div><div class="card-value positive">${fmtBRL(day.totalFaturamento||0)}</div></div>
+          <div class="summary-card card-bruto"><div class="card-label">💼 L.Bruto</div><div class="card-value ${colorClass(day.totalBruto)}">${fmtBRL(day.totalBruto)}</div></div>
+          <div class="summary-card card-liquido"><div class="card-label">✅ L.Líquido</div><div class="card-value ${colorClass(day.totalLiquido)}">${fmtBRL(day.totalLiquido)}</div><div class="card-sub">Margem: ${(day.totalMargem||0).toFixed(1)}%</div></div>
+          <div class="summary-card card-roas"><div class="card-label">📢 ROAS</div><div class="card-value ${day.totalRoas!==null?(day.totalRoas>=1?'positive':'negative'):'neutral'}">${day.totalRoas!==null?day.totalRoas.toFixed(2)+'x':'—'}</div></div>
+        </div>
+      </div>`;
+    list.appendChild(div);
+  });
+}
+function toggleDay(idx){document.getElementById('hday-'+idx).classList.toggle('open')}
+function deleteHistoryDay(idx){
+  if(!confirm('Remover este dia?'))return;
+  const h=loadHistory();h.splice(idx,1);saveHistory(h);renderHistory();
+}
+function confirmClearHistory(){
+  if(!confirm('Apagar TODO o histórico?'))return;
+  localStorage.removeItem(HISTORY_KEY);renderHistory();
+}
+
+// ── Edit modal ─────────────────────────────────────────────────
+function openEditModal(idx){
+  _editingIdx=idx;_editAdCount=0;
+  const day=loadHistory()[idx];
+  document.getElementById('edit-modal-date').textContent='📅 '+formatDateLong(day.date);
+  const c=document.getElementById('edit-ads-container');c.innerHTML='';
+  (day._raw||day.ads.map(a=>({name:a.name,preco:'',retorno:'',custo:'',vendas:'',ads:''}))).forEach(a=>addEditAd(a));
+  openModal('modal-edit');
+}
+function addEditAd(data=null){
+  _editAdCount++;const id=_editAdCount;
+  const c=document.getElementById('edit-ads-container');
+  const div=document.createElement('div');div.className='edit-ad-card';div.id='edit-ad-'+id;
+  div.innerHTML=`
+    <div class="edit-ad-title"><span>📦 Anúncio ${id}</span><button class="btn btn-danger btn-xs" onclick="removeEditAd(${id})">✕</button></div>
+    <input type="text" class="edit-name-input" placeholder="Nome" value="${escHtml(data?data.name||'':'')}" data-field="name">
+    <div class="edit-fields">
+      <div class="edit-field"><label>🏷️ Preço venda</label><input type="number" min="0" step="0.01" placeholder="0,00" value="${data?escHtml(data.preco||''):''}" data-field="preco"></div>
+      <div class="edit-field"><label>📥 Retorno líq.</label><input type="number" min="0" step="0.01" placeholder="0,00" value="${data?escHtml(data.retorno||''):''}" data-field="retorno"></div>
+      <div class="edit-field"><label>💰 Custo</label><input type="number" min="0" step="0.01" placeholder="0,00" value="${data?escHtml(data.custo||''):''}" data-field="custo"></div>
+      <div class="edit-field"><label>🛒 Vendas</label><input type="number" min="0" step="1" placeholder="0" value="${data?escHtml(data.vendas||''):''}" data-field="vendas"></div>
+      <div class="edit-field"><label>📢 Ads</label><input type="number" min="0" step="0.01" placeholder="0,00" value="${data?escHtml(data.ads||''):''}" data-field="ads"></div>
+    </div>`;
+  c.appendChild(div);
+}
+function removeEditAd(id){const el=document.getElementById('edit-ad-'+id);if(el)el.remove()}
+function saveEditedDay(){
+  if(_editingIdx<0)return;
+  const cards=document.querySelectorAll('#edit-ads-container .edit-ad-card');
+  if(!cards.length){alert('Adicione pelo menos um anúncio.');return}
+  const raw=Array.from(cards).map(c=>({
+    name:   c.querySelector('[data-field="name"]').value.trim()||'Sem nome',
+    preco:  c.querySelector('[data-field="preco"]').value,
+    retorno:c.querySelector('[data-field="retorno"]').value,
+    custo:  c.querySelector('[data-field="custo"]').value,
+    vendas: c.querySelector('[data-field="vendas"]').value,
+    ads:    c.querySelector('[data-field="ads"]').value,
+  }));
+  const hist=loadHistory();
+  const s=computeSummary(raw);
+  hist[_editingIdx]={date:hist[_editingIdx].date,...s,_raw:raw};
+  saveHistory(hist);closeModal('modal-edit');renderHistory();
+}
+
+// ── Chart ──────────────────────────────────────────────────────
+function drawChart(hist){
+  const canvas=document.getElementById('chartCanvas');
+  const wrap=document.getElementById('chart-canvas-wrap');
+  const W=wrap.clientWidth||800,H=220;
+  canvas.width=W;canvas.height=H;
+  const ctx=canvas.getContext('2d');ctx.clearRect(0,0,W,H);
+  const data=[...hist].reverse();
+  const labels=data.map(d=>formatDateBR(d.date));
+  const values=data.map(d=>d.totalFaturamento||0);
+  if(!values.length)return;
+  const PAD={top:20,right:20,bottom:40,left:82};
+  const cW=W-PAD.left-PAD.right,cH=H-PAD.top-PAD.bottom;
+  const minV=Math.min(...values,0),maxV=Math.max(...values,0);
+  const range=maxV-minV||1;
+  const xStep=values.length>1?cW/(values.length-1):cW/2;
+  function xPos(i){return PAD.left+(values.length>1?i*xStep:cW/2)}
+  function yPos(v){return PAD.top+cH-((v-minV)/range)*cH}
+  ctx.strokeStyle='#2e3350';ctx.lineWidth=1;
+  for(let g=0;g<=4;g++){
+    const y=PAD.top+(cH/4)*g;
+    ctx.beginPath();ctx.moveTo(PAD.left,y);ctx.lineTo(PAD.left+cW,y);ctx.stroke();
+    ctx.fillStyle='#64748b';ctx.font='11px Segoe UI,sans-serif';ctx.textAlign='right';
+    ctx.fillText(fmtBRL(maxV-(range/4)*g),PAD.left-6,y+4);
+  }
+  const grad=ctx.createLinearGradient(0,PAD.top,0,PAD.top+cH);
+  grad.addColorStop(0,'rgba(79,142,247,.3)');grad.addColorStop(1,'rgba(79,142,247,.02)');
+  ctx.fillStyle=grad;ctx.beginPath();ctx.moveTo(xPos(0),yPos(values[0]));
+  for(let i=1;i<values.length;i++)ctx.lineTo(xPos(i),yPos(values[i]));
+  ctx.lineTo(xPos(values.length-1),PAD.top+cH);ctx.lineTo(xPos(0),PAD.top+cH);ctx.closePath();ctx.fill();
+  ctx.strokeStyle='#4f8ef7';ctx.lineWidth=2.5;ctx.lineJoin='round';
+  ctx.beginPath();ctx.moveTo(xPos(0),yPos(values[0]));
+  for(let i=1;i<values.length;i++)ctx.lineTo(xPos(i),yPos(values[i]));
+  ctx.stroke();
+  values.forEach((v,i)=>{
+    const x=xPos(i),y=yPos(v);
+    ctx.fillStyle='#4f8ef7';ctx.beginPath();ctx.arc(x,y,4,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle='#64748b';ctx.font='10px Segoe UI,sans-serif';ctx.textAlign='center';
+    ctx.fillText(labels[i],x,H-PAD.bottom+18);
+  });
+}
+
+function addDefaultAd(){
+  addAd({name:'Tênis Nike Preto',preco:'78.00',retorno:'59.00',custo:'54.00',vendas:'10',ads:'12.00'});
+}
+
+
+// ── Fechar o Dia ──────────────────────────────────────────────
+function openFecharDia(){
+  const cards=document.querySelectorAll('.ad-card');
+  if(!cards.length){alert('Adicione pelo menos um anúncio antes de fechar o dia.');return}
+  // default to today
+  document.getElementById('fechar-dia-date').value=todayStr();
+  updateFecharPreview();
+  openModal('modal-fechar-dia');
+}
+function updateFecharPreview(){
+  const d=document.getElementById('fechar-dia-date').value;
+  const el=document.getElementById('fechar-dia-preview');
+  if(!d){el.textContent='';return}
+  const s=computeSummary(collectInputData());
+  el.innerHTML=`Arquivar: <strong>${formatDateBR(d)}</strong> · Faturamento: <strong>${fmtBRL(s.totalFaturamento)}</strong> · L.Líquido: <strong>${fmtBRL(s.totalLiquido)}</strong>`;
+}
+function confirmarFecharDia(){
+  const d=document.getElementById('fechar-dia-date').value;
+  if(!d){alert('Selecione uma data.');return}
+  const raw=collectInputData();
+  if(!raw.length){alert('Sem dados para arquivar.');return}
+  const s=computeSummary(raw);
+  const hist=loadHistory();
+  const entry={date:d,...s,_raw:raw};
+  const idx=hist.findIndex(h=>h.date===d);
+  if(idx>=0){
+    if(!confirm(`Já existe um registro para ${formatDateBR(d)}. Deseja substituir?`))return;
+    hist[idx]=entry;
+  } else { hist.unshift(entry); }
+  hist.sort((a,b)=>b.date.localeCompare(a.date));
+  hist.splice(90);
+  saveHistory(hist);
+  closeModal('modal-fechar-dia');
+  // clear
+  document.getElementById('ads-container').innerHTML='';
+  document.getElementById('results-section').style.display='none';
+  document.getElementById('custos-dia-row').style.display='none';
+  adCount=0;_liveFaturamento=0;_liveCustos=0;
+  localStorage.removeItem(STORAGE_KEY);
+  addDefaultAd();
+  renderMetaDiaria(0);
+  renderMetas(0);
+}
+
+// ── Custos Operacionais ───────────────────────────────────────
+function addCusto(data=null){
+  const list=document.getElementById('custos-list');
+  const id='c'+Date.now()+Math.random().toString(36).slice(2,6);
+  const item=data||{id,nome:'',valor:'',freq:'diario',data:todayStr()};
+  const div=document.createElement('div');
+  div.id='custo-'+id;
+  div.style.cssText='background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px 16px;margin-bottom:10px;display:grid;grid-template-columns:1fr auto auto auto auto;gap:10px;align-items:center;flex-wrap:wrap;';
+  div.innerHTML=`
+    <input type="text" placeholder="Nome do custo (ex: Envio Full)" value="${escHtml(item.nome||'')}"
+      style="background:var(--surface2);border:1px solid var(--border);border-radius:7px;padding:8px 10px;color:var(--text);font-size:.9rem;outline:none;width:100%;"
+      oninput="saveCustoInline('${id}',this)" data-field="nome">
+    <input type="number" min="0" step="0.01" placeholder="R$ 0,00" value="${item.valor||''}"
+      style="background:var(--surface2);border:1px solid var(--border);border-radius:7px;padding:8px 10px;color:var(--text);font-size:.9rem;outline:none;width:100px;-moz-appearance:textfield;"
+      oninput="saveCustoInline('${id}',this)" data-field="valor">
+    <select oninput="saveCustoInline('${id}',this)" data-field="freq"
+      style="background:var(--surface2);border:1px solid var(--border);border-radius:7px;padding:8px 10px;color:var(--text);font-size:.88rem;outline:none;">
+      <option value="diario" ${(item.freq||'diario')==='diario'?'selected':''}>📅 Diário</option>
+      <option value="mensal" ${item.freq==='mensal'?'selected':''}>🗓 Mensal</option>
+      <option value="avulso" ${item.freq==='avulso'?'selected':''}>⚡ Avulso</option>
+    </select>
+    <input type="date" value="${item.freq==='avulso'?(item.data||todayStr()):todayStr()}"
+      style="background:var(--surface2);border:1px solid var(--border);border-radius:7px;padding:8px 10px;color:var(--text);font-size:.88rem;outline:none;display:${item.freq==='avulso'?'block':'none'};"
+      oninput="saveCustoInline('${id}',this)" data-field="dataAvulso" id="data-${id}">
+    <button class="btn btn-danger btn-xs" onclick="removeCusto('${id}')">🗑</button>`;
+  // show/hide date when freq changes
+  div.querySelector('[data-field="freq"]').addEventListener('change',function(){
+    div.querySelector('#data-'+id).style.display=this.value==='avulso'?'block':'none';
+    saveCustosAll();
+  });
+  list.appendChild(div);
+  saveCustosAll();
+  renderCustosTotais();
+}
+
+function saveCustoInline(id,el){
+  saveCustosAll();
+  renderCustosTotais();
+}
+
+function saveCustosAll(){
+  const items=Array.from(document.querySelectorAll('[id^="custo-"]')).map(div=>{
+    const id=div.id.replace('custo-','');
+    return{
+      id,
+      nome: div.querySelector('[data-field="nome"]').value.trim(),
+      valor: div.querySelector('[data-field="valor"]').value,
+      freq: div.querySelector('[data-field="freq"]').value,
+      data: div.querySelector('[data-field="dataAvulso"]').value||todayStr(),
+    };
+  });
+  saveCosts(items);
+}
+
+function removeCusto(id){
+  const el=document.getElementById('custo-'+id);
+  if(el)el.remove();
+  saveCustosAll();
+  renderCustosTotais();
+}
+
+function renderCustos(){
+  const list=document.getElementById('custos-list');
+  list.innerHTML='';
+  const items=loadCosts();
+  if(!items.length){
+    list.innerHTML='<div style="text-align:center;padding:40px;color:var(--muted);">Nenhum custo cadastrado.<br>Clique em <strong>＋ Adicionar Custo</strong>.</div>';
+  } else {
+    items.forEach(item=>addCusto(item));
+  }
+  renderCustosTotais();
+}
+
+function renderCustosTotais(){
+  const items=loadCosts();
+  if(!items.length){document.getElementById('custos-totais').innerHTML='';return}
+  const totalDia=items.filter(c=>c.freq==='diario').reduce((s,c)=>s+(parseFloat(c.valor)||0),0);
+  const totalMes=getTotalCustosMes(mesAtual());
+  document.getElementById('custos-totais').innerHTML=`
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-top:4px;">
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px 16px;">
+        <div style="font-size:.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px;">💸 Custo Fixo/Dia</div>
+        <div style="font-size:1.2rem;font-weight:700;color:var(--red)">${fmtBRL(totalDia)}</div>
+        <div style="font-size:.75rem;color:var(--muted);margin-top:2px;">Descontado do L.Líquido diário</div>
+      </div>
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px 16px;">
+        <div style="font-size:.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px;">📆 Custo Total do Mês</div>
+        <div style="font-size:1.2rem;font-weight:700;color:var(--red)">${fmtBRL(totalMes)}</div>
+        <div style="font-size:.75rem;color:var(--muted);margin-top:2px;">Fixos × dias + mensais + avulsos</div>
+      </div>
+    </div>`;
+}
+
+
+// ── Init ───────────────────────────────────────────────────────
+function init(){
+  updateDateBadge();
+  const saved=loadData();
+  if(saved&&saved.ads&&saved.ads.length>0){
+    if(saved.date!==todayStr()){
+      _pendingSaved=saved;
+      document.getElementById('modal-date-info').textContent=formatDateBR(saved.date);
+      openModal('modal-ontem');
+      saved.ads.forEach(d=>addAd(d));
+    } else { saved.ads.forEach(d=>addAd(d)); }
+    // recompute live faturamento from saved today data
+    try{
+      const s=computeSummary(saved.ads||[]);
+      _liveFaturamento=s.totalFaturamento;
+    }catch(e){_liveFaturamento=0;}
+  } else { addDefaultAd(); }
+  renderMetaDiaria(_liveFaturamento);
+  renderMetas(_liveFaturamento);
+}
+init();
+</script>
+</body>
+</html>
