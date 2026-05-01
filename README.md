@@ -1,36 +1,155 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Briefing - Next.js + Firebase
 
-## Getting Started
+Guia direto para instalar e configurar Firebase neste projeto, localmente e em deploy (Vercel ou Firebase Hosting).
 
-First, run the development server:
+## 1. Requisitos
+
+- Node.js 20+
+- Conta Google com acesso ao projeto Firebase `briefing-76017` <- procure pelo nome do seu projeto>
+- npm
+
+## 2. Instalar dependencias do projeto
+
+```bash
+npm install
+firebase login
+```
+- Se não conseguir acessar projeto, peça acesso ao dono do projeto ou confirme que esta logado com a conta correta (`firebase login --reauth` para forçar escolha de conta).
+## 3. Configurar variaveis de ambiente
+
+Crie ou ajuste arquivo `.env.local` na raiz com estas chaves:
+
+```env
+NEXT_PUBLIC_FIREBASE_API_KEY=...
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=...
+NEXT_PUBLIC_FIREBASE_PROJECT_ID=briefing-76017
+NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=...
+NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=...
+NEXT_PUBLIC_FIREBASE_APP_ID=...
+NEXT_PUBLIC_ALLOWED_EMAILS=
+```
+
+Obs:
+- Prefixo `NEXT_PUBLIC_` expoe variavel no navegador. Isso e esperado para config cliente Firebase.
+- Nao coloque credenciais sensiveis (service account, secret admin) neste arquivo.
+
+## 4. Rodar projeto local
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Abra `http://localhost:3000`.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## 5. Firebase CLI (para rules, hosting, emulators)
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Este projeto ja possui:
+- `firebase.json`
+- `.firebaserc` com projeto default `briefing-76017`
+- `firestore.rules`
 
-## Learn More
+### 5.1 Usar CLI sem instalacao global
 
-To learn more about Next.js, take a look at the following resources:
+```bash
+npx firebase-tools --version
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### 5.2 Login no Firebase
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```bash
+npx firebase-tools login
+```
 
-## Deploy on Vercel
+### 5.3 Confirmar projeto alvo
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+```bash
+npx firebase-tools use briefing-76017 ### Aqui deve ser o nome do seu projeto, se nao tiver, rode `npx firebase-tools projects:list` para ver os projetos disponiveis e confirmar o nome correto.
+```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+### 5.4 Deploy das regras do Firestore
+
+```bash
+npx firebase-tools deploy --only firestore:rules --project briefing-76017
+```
+
+### 5.5 Emuladores locais (opcional)
+
+```bash
+npx firebase-tools emulators:start
+```
+
+Se quiser so hosting:
+
+```bash
+npx firebase-tools emulators:start --only hosting
+```
+
+## 6. Fluxo de acesso (owner primeiro usuario)
+
+Implementacao atual:
+- Se bootstrap de acesso ainda nao existe, primeiro login autenticado vira `owner`.
+- Owner fica em `controleAcesso` e metadado em `controleAcessoMeta/config`.
+- Regras no `firestore.rules` controlam owner/admin/user.
+
+Importante:
+- Depois de alterar `firestore.rules`, rode deploy das rules.
+- Sem deploy, Firebase continua com regras antigas.
+
+## 7. Deploy na Vercel
+
+## 7.1 Conectar repositorio na Vercel
+
+- Import project na Vercel.
+- Framework detectado: Next.js.
+
+## 7.2 Configurar Environment Variables na Vercel
+
+No painel da Vercel, adicione as mesmas variaveis do `.env.local`:
+
+- `NEXT_PUBLIC_FIREBASE_API_KEY`
+- `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN`
+- `NEXT_PUBLIC_FIREBASE_PROJECT_ID`
+- `NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET`
+- `NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID`
+- `NEXT_PUBLIC_FIREBASE_APP_ID`
+- `NEXT_PUBLIC_ALLOWED_EMAILS` (opcional)
+
+Depois redeploy.
+
+## 7.3 Regras Firestore continuam fora da Vercel
+
+Mesmo com app na Vercel, deploy das regras ainda e via Firebase CLI:
+
+```bash
+npx firebase-tools deploy --only firestore:rules --project briefing-76017
+```
+
+## 8. Deploy no Firebase Hosting (alternativa a Vercel)
+
+`firebase.json` ja esta com hosting via frameworks.
+
+### 8.1 Deploy
+
+```bash
+npx firebase-tools deploy --only hosting --project briefing-76017
+```
+
+### 8.2 Deploy completo (hosting + rules)
+
+```bash
+npx firebase-tools deploy --project briefing-76017
+```
+
+## 9. Troubleshooting rapido
+
+- Erro `firebase is not recognized`:
+	use `npx firebase-tools ...`.
+
+- Erro `Not in a Firebase app directory`:
+	confirme existencia de `firebase.json` na raiz.
+
+- Erro `Failed to authenticate`:
+	rode `npx firebase-tools login`.
+
+- Mudou rules e nada aconteceu:
+	faltou deploy de `firestore.rules`.

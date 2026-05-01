@@ -5,29 +5,36 @@ import {
   archiveDay,
   clearDraft,
   saveDraft,
+  upsertProduct,
 } from "@/lib/firebase/data";
 import {
   colorClass,
   computeAd,
   computeSummary,
-  emptyListing,
   fmtBRL,
   formatDateBR,
   todayStr,
   totalCustosDia,
 } from "@/lib/domain/calc";
-import type { Listing } from "@/lib/domain/types";
+import type { Listing, Product } from "@/lib/domain/types";
 import MetaDiaria from "@/components/MetaDiaria";
 import Modal from "@/components/Modal";
+import { ProductModal } from "@/components/tabs/EstoqueTab";
 import type { UserData } from "@/components/useUserData";
 
+function calcRetorno(preco: string, custo: string): string {
+  const p = parseFloat(preco) || 0;
+  const c = parseFloat(custo) || 0;
+  return p ? (p - c).toFixed(2) : "";
+}
+
 const DEFAULT_AD: Listing = {
-  name: "Tênis Nike Preto",
-  preco: "78.00",
-  retorno: "59.00",
-  custo: "54.00",
-  vendas: "10",
-  ads: "12.00",
+  name: "",
+  preco: "",
+  retorno: "",
+  custo: "",
+  vendas: "",
+  ads: "",
 };
 
 export default function HojeTab({
@@ -37,31 +44,23 @@ export default function HojeTab({
   uid: string;
   data: UserData;
 }) {
-  const [ads, setAds] = useState<Listing[]>([]);
+  const [ads, setAds] = useState<Listing[]>(() =>
+    data.draft?.ads?.length ? data.draft.ads : [{ ...DEFAULT_AD }]
+  );
   const [showResults, setShowResults] = useState(false);
-  const [hydrated, setHydrated] = useState(false);
-  const [showOntem, setShowOntem] = useState(false);
-  const [ontemDate, setOntemDate] = useState<string | null>(null);
+  const [showOntem, setShowOntem] = useState(() =>
+    !!(data.draft?.ads?.length && data.draft.date && data.draft.date !== todayStr())
+  );
+  const [ontemDate, setOntemDate] = useState<string | null>(() =>
+    data.draft?.ads?.length && data.draft.date && data.draft.date !== todayStr() ? data.draft.date : null
+  );
   const [showFechar, setShowFechar] = useState(false);
   const [fecharDate, setFecharDate] = useState(todayStr());
+  const [showLancar, setShowLancar] = useState(false);
   const lastSavedRef = useRef<string>("");
+  const [hydrated] = useState(true);
 
-  // Hydrate from Firestore draft on first load
-  useEffect(() => {
-    if (!data.ready || hydrated) return;
-    if (data.draft && data.draft.ads?.length) {
-      setAds(data.draft.ads);
-      if (data.draft.date && data.draft.date !== todayStr()) {
-        setOntemDate(data.draft.date);
-        setShowOntem(true);
-      }
-    } else {
-      setAds([{ ...DEFAULT_AD }]);
-    }
-    setHydrated(true);
-  }, [data.ready, data.draft, hydrated]);
-
-  // Auto-save draft (debounced via signature)
+  // Auto-save draft (debounced, persists across devices via Firestore)
   useEffect(() => {
     if (!hydrated) return;
     const sig = JSON.stringify(ads);
@@ -86,9 +85,6 @@ export default function HojeTab({
 
   function updateAd(idx: number, patch: Partial<Listing>) {
     setAds((prev) => prev.map((a, i) => (i === idx ? { ...a, ...patch } : a)));
-  }
-  function addAd() {
-    setAds((prev) => [...prev, emptyListing()]);
   }
   function removeAd(idx: number) {
     setAds((prev) => prev.filter((_, i) => i !== idx));
@@ -115,10 +111,7 @@ export default function HojeTab({
   }
 
   async function onArchiveOntem() {
-    if (!data.draft) {
-      setShowOntem(false);
-      return;
-    }
+    if (!data.draft) { setShowOntem(false); return; }
     const day = computeSummary(data.draft.ads || []);
     await archiveDay(uid, {
       date: data.draft.date,
@@ -138,23 +131,13 @@ export default function HojeTab({
   }
 
   async function onConfirmarFechar() {
-    if (!fecharDate) {
-      alert("Selecione uma data.");
-      return;
-    }
-    if (!ads.length) {
-      alert("Sem dados para arquivar.");
-      return;
-    }
+    if (!fecharDate) { alert("Selecione uma data."); return; }
+    if (!ads.length) { alert("Sem dados para arquivar."); return; }
     const exists = data.days.some((d) => d.date === fecharDate);
     if (
       exists &&
-      !confirm(
-        `Já existe um registro para ${formatDateBR(fecharDate)}. Deseja substituir?`,
-      )
-    ) {
-      return;
-    }
+      !confirm(`Já existe um registro para ${formatDateBR(fecharDate)}. Deseja substituir?`)
+    ) return;
     const s = computeSummary(ads);
     await archiveDay(uid, { date: fecharDate, ...s, raw: ads });
     await clearDraft(uid);
@@ -169,8 +152,21 @@ export default function HojeTab({
 
       <div className="top-actions">
         <div className="left-btns">
-          <button type="button" className="btn btn-primary" onClick={addAd}>
-            ＋ Adicionar Anúncio
+          <button
+            type="button"
+            className="btn btn-primary"
+            onClick={() => setShowLancar(true)}
+          >
+            🛒 Lançar Venda
+          </button>
+          <button
+            type="button"
+            className="btn btn-ghost"
+            onClick={() =>
+              setAds((prev) => [...prev, { ...DEFAULT_AD }])
+            }
+          >
+            ＋ Anúncio Manual
           </button>
           <button
             type="button"
@@ -231,13 +227,10 @@ export default function HojeTab({
               <tbody>
                 {ads.map((raw, i) => {
                   const r = computeAd(raw);
-                  const roasTxt =
-                    r.roas !== null ? `${r.roas.toFixed(2)}x` : "—";
+                  const roasTxt = r.roas !== null ? `${r.roas.toFixed(2)}x` : "—";
                   const roasCls =
                     r.roas !== null
-                      ? r.roas >= 1
-                        ? "positive"
-                        : "negative"
+                      ? r.roas >= 1 ? "positive" : "negative"
                       : "neutral";
                   return (
                     <tr key={i}>
@@ -246,16 +239,10 @@ export default function HojeTab({
                       <td className="negative">{fmtBRL(r.cmv)}</td>
                       <td className={colorClass(r.bruto)}>{fmtBRL(r.bruto)}</td>
                       <td className="negative">{fmtBRL(r.ads)}</td>
-                      <td className={colorClass(r.liquido)}>
-                        {fmtBRL(r.liquido)}
-                      </td>
+                      <td className={colorClass(r.liquido)}>{fmtBRL(r.liquido)}</td>
                       <td
                         className={
-                          r.margem >= 10
-                            ? "positive"
-                            : r.margem > 0
-                              ? "neutral"
-                              : "negative"
+                          r.margem >= 10 ? "positive" : r.margem > 0 ? "neutral" : "negative"
                         }
                       >
                         {r.margem.toFixed(1)}%
@@ -323,9 +310,7 @@ export default function HojeTab({
               <div
                 className={`card-value ${
                   summary.totalRoas !== null
-                    ? summary.totalRoas >= 1
-                      ? "positive"
-                      : "negative"
+                    ? summary.totalRoas >= 1 ? "positive" : "negative"
                     : "neutral"
                 }`}
               >
@@ -339,6 +324,7 @@ export default function HojeTab({
         </section>
       )}
 
+      {/* Modal: yesterday draft */}
       <Modal open={showOntem} onClose={onKeepOntem}>
         <div className="modal-icon">📅</div>
         <div className="modal-title">Dados de ontem detectados</div>
@@ -348,23 +334,16 @@ export default function HojeTab({
           arquivar no histórico e começar hoje?
         </p>
         <div className="modal-btns">
-          <button
-            type="button"
-            className="btn btn-success"
-            onClick={onArchiveOntem}
-          >
+          <button type="button" className="btn btn-success" onClick={onArchiveOntem}>
             ✅ Arquivar e limpar
           </button>
-          <button
-            type="button"
-            className="btn btn-ghost"
-            onClick={onKeepOntem}
-          >
+          <button type="button" className="btn btn-ghost" onClick={onKeepOntem}>
             📂 Manter
           </button>
         </div>
       </Modal>
 
+      {/* Modal: close day */}
       <Modal open={showFechar} onClose={() => setShowFechar(false)}>
         <div className="modal-icon">📁</div>
         <div className="modal-title">Fechar o Dia</div>
@@ -379,43 +358,312 @@ export default function HojeTab({
             onChange={(e) => setFecharDate(e.target.value)}
           />
         </div>
-        <div
-          style={{
-            marginTop: 4,
-            fontSize: ".82rem",
-            color: "var(--muted)",
-          }}
-        >
+        <div style={{ marginTop: 4, fontSize: ".82rem", color: "var(--muted)" }}>
           {fecharDate ? (
             <>
               Arquivar: <strong>{formatDateBR(fecharDate)}</strong> ·
-              Faturamento:{" "}
-              <strong>{fmtBRL(summary.totalFaturamento)}</strong> · L.Líquido:{" "}
-              <strong>{fmtBRL(summary.totalLiquido)}</strong>
+              Faturamento: <strong>{fmtBRL(summary.totalFaturamento)}</strong> ·
+              L.Líquido: <strong>{fmtBRL(summary.totalLiquido)}</strong>
             </>
           ) : null}
         </div>
         <div className="modal-btns">
-          <button
-            type="button"
-            className="btn btn-success"
-            onClick={onConfirmarFechar}
-          >
+          <button type="button" className="btn btn-success" onClick={onConfirmarFechar}>
             ✅ Arquivar e Limpar
           </button>
-          <button
-            type="button"
-            className="btn btn-ghost"
-            onClick={() => setShowFechar(false)}
-          >
+          <button type="button" className="btn btn-ghost" onClick={() => setShowFechar(false)}>
             ✕ Cancelar
           </button>
         </div>
       </Modal>
+
+      {/* Modal: launch sale */}
+      {showLancar && (
+        <LancarVendaModal
+          uid={uid}
+          products={data.products}
+          onClose={() => setShowLancar(false)}
+          onAdd={(listing) => {
+            setAds((prev) => [...prev, listing]);
+            setShowLancar(false);
+          }}
+        />
+      )}
     </>
   );
 }
 
+// ─── Lançar Venda Modal ────────────────────────────────────────
+function LancarVendaModal({
+  uid,
+  products,
+  onClose,
+  onAdd,
+}: {
+  uid: string;
+  products: Product[];
+  onClose: () => void;
+  onAdd: (l: Listing) => void;
+}) {
+  const [search, setSearch] = useState("");
+  const [selected, setSelected] = useState<Product | null>(null);
+  const [ads, setAds] = useState("");
+  const [vendas, setVendas] = useState("");
+  const [retorno, setRetorno] = useState("");
+  const [retornoManual, setRetornoManual] = useState(false);
+  const [showNewProduct, setShowNewProduct] = useState(false);
+  const [newProductBlank, setNewProductBlank] = useState<Product | null>(null);
+
+  const activeProducts = products.filter((p) => p.ativo);
+  const filtered = activeProducts.filter((p) => {
+    const q = search.toLowerCase();
+    return (
+      !q ||
+      p.name.toLowerCase().includes(q) ||
+      (p.mlb ?? "").toLowerCase().includes(q)
+    );
+  });
+
+  function selectProduct(p: Product) {
+    setSelected(p);
+    setRetorno(p.retorno || "");
+    setRetornoManual(false);
+  }
+
+  function handleAdd() {
+    if (!selected) { alert("Selecione um produto."); return; }
+    if (!vendas || parseFloat(vendas) <= 0) { alert("Informe o número de vendas."); return; }
+    if (!ads) { alert("Informe o gasto com Ads."); return; }
+    onAdd({
+      name: selected.name,
+      preco: selected.preco,
+      retorno: retornoManual ? retorno : selected.retorno,
+      custo: selected.custo,
+      vendas,
+      ads,
+      mlb: selected.mlb,
+      productId: selected.id,
+    });
+  }
+
+  if (showNewProduct && newProductBlank) {
+    return (
+      <ProductModal
+        product={newProductBlank}
+        isNew
+        onClose={() => setShowNewProduct(false)}
+        onSave={async (prod: Product) => {
+          await upsertProduct(uid, prod);
+          selectProduct(prod);
+          setShowNewProduct(false);
+        }}
+      />
+    );
+  }
+
+  return (
+    <Modal open onClose={onClose} wide>
+      <div className="modal-icon">🛒</div>
+      <div className="modal-title">Lançar Venda</div>
+
+      {!selected ? (
+        <>
+          <p className="modal-sub">Busque um produto pelo nome ou código MLB</p>
+          <input
+            type="text"
+            placeholder="🔍 Nome ou MLB…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            autoFocus
+            style={{
+              width: "100%",
+              background: "var(--surface2)",
+              border: "1px solid var(--border)",
+              borderRadius: 8,
+              padding: "9px 14px",
+              color: "var(--text)",
+              fontSize: ".9rem",
+              outline: "none",
+              boxSizing: "border-box",
+              marginBottom: 12,
+            }}
+          />
+          <div style={{ maxHeight: 300, overflowY: "auto" }}>
+            {filtered.length === 0 ? (
+              <div style={{ textAlign: "center", padding: "20px 0", color: "var(--muted)" }}>
+                <p style={{ marginBottom: 12 }}>
+                  {activeProducts.length === 0
+                    ? "Nenhum produto em estoque."
+                    : "Nenhum produto encontrado."}
+                </p>
+                <button
+                  type="button"
+                  className="btn btn-primary btn-sm"
+                  onClick={() => {
+                    setNewProductBlank({
+                      id: "p" + Date.now() + Math.random().toString(36).slice(2, 6),
+                      name: search,
+                      preco: "",
+                      retorno: "",
+                      custo: "",
+                      mlb: "",
+                      ativo: true,
+                    });
+                    setShowNewProduct(true);
+                  }}
+                >
+                  ＋ Cadastrar novo produto
+                </button>
+              </div>
+            ) : (
+              <>
+                {filtered.map((p) => (
+                  <div
+                    key={p.id}
+                    onClick={() => selectProduct(p)}
+                    onKeyDown={(e) => e.key === "Enter" && selectProduct(p)}
+                    role="button"
+                    tabIndex={0}
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      padding: "10px 14px",
+                      borderRadius: 8,
+                      marginBottom: 6,
+                      background: "var(--surface2)",
+                      border: "1px solid var(--border)",
+                      cursor: "pointer",
+                      transition: "border-color .15s",
+                    }}
+                  >
+                    <div>
+                      <div style={{ fontWeight: 600, fontSize: ".9rem" }}>{p.name}</div>
+                      {p.mlb && (
+                        <div style={{ fontSize: ".75rem", color: "var(--muted)" }}>{p.mlb}</div>
+                      )}
+                    </div>
+                    <div style={{ textAlign: "right", fontSize: ".82rem" }}>
+                      <div className="positive">R$ {(parseFloat(p.preco) || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</div>
+                      <div style={{ color: "var(--muted)" }}>
+                        Custo: R$ {(parseFloat(p.custo) || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                <div style={{ marginTop: 8, textAlign: "center" }}>
+                  <button
+                    type="button"
+                    className="btn btn-ghost btn-sm"
+                    onClick={() => {
+                      setNewProductBlank({
+                        id: "p" + Date.now() + Math.random().toString(36).slice(2, 6),
+                        name: search,
+                        preco: "",
+                        retorno: "",
+                        custo: "",
+                        mlb: "",
+                        ativo: true,
+                      });
+                      setShowNewProduct(true);
+                    }}
+                  >
+                    ＋ Cadastrar novo produto
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </>
+      ) : (
+        <>
+          <div
+            style={{
+              background: "var(--surface2)",
+              border: "1px solid var(--border)",
+              borderRadius: 8,
+              padding: "12px 14px",
+              marginBottom: 16,
+            }}
+          >
+            <div style={{ fontWeight: 700 }}>{selected.name}</div>
+            <div style={{ fontSize: ".8rem", color: "var(--muted)", marginTop: 2 }}>
+              {selected.mlb && <span style={{ marginRight: 10 }}>{selected.mlb}</span>}
+              Preço: R$ {(parseFloat(selected.preco) || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })} ·
+              Custo: R$ {(parseFloat(selected.custo) || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+            </div>
+            <button
+              type="button"
+              style={{
+                marginTop: 6,
+                fontSize: ".75rem",
+                color: "var(--muted)",
+                background: "none",
+                border: "none",
+                cursor: "pointer",
+                padding: 0,
+              }}
+              onClick={() => setSelected(null)}
+            >
+              ← Trocar produto
+            </button>
+          </div>
+
+          <div className="config-field">
+            <label>
+              📥 Retorno líquido/unidade (R$)
+              <span style={{ marginLeft: 8, fontSize: ".72rem", color: "var(--muted)" }}>
+                {retornoManual ? "(editado)" : "(auto)"}
+              </span>
+            </label>
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              value={retorno}
+              onChange={(e) => { setRetornoManual(true); setRetorno(e.target.value); }}
+            />
+          </div>
+
+          <div className="config-field">
+            <label>🛒 Número de vendas</label>
+            <input
+              type="number"
+              min="1"
+              step="1"
+              placeholder="Ex: 10"
+              value={vendas}
+              onChange={(e) => setVendas(e.target.value)}
+            />
+          </div>
+
+          <div className="config-field">
+            <label>📢 Gasto com Ads (R$)</label>
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              placeholder="0,00"
+              value={ads}
+              onChange={(e) => setAds(e.target.value)}
+            />
+          </div>
+
+          <div className="modal-btns">
+            <button type="button" className="btn btn-success" onClick={handleAdd}>
+              ✅ Adicionar Venda
+            </button>
+            <button type="button" className="btn btn-ghost" onClick={onClose}>
+              ✕ Cancelar
+            </button>
+          </div>
+        </>
+      )}
+    </Modal>
+  );
+}
+
+// ─── AdCard ───────────────────────────────────────────────────
 function AdCard({
   num,
   ad,
@@ -427,6 +675,17 @@ function AdCard({
   onChange: (p: Partial<Listing>) => void;
   onRemove: () => void;
 }) {
+  const [retornoManual, setRetornoManual] = useState(false);
+
+  // Auto-calc retorno when preco or custo changes
+  useEffect(() => {
+    if (!retornoManual) {
+      const r = calcRetorno(ad.preco, ad.custo);
+      if (r !== ad.retorno) onChange({ retorno: r });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ad.preco, ad.custo, retornoManual]);
+
   return (
     <div className="ad-card">
       <div className="ad-card-header">
@@ -446,6 +705,11 @@ function AdCard({
           ✕ Remover
         </button>
       </div>
+      {ad.mlb && (
+        <div style={{ fontSize: ".75rem", color: "var(--muted)", marginBottom: 8 }}>
+          🏷️ {ad.mlb}
+        </div>
+      )}
       <div className="fields-grid">
         <Field
           label="🏷️ Preço de venda (R$)"
@@ -453,15 +717,46 @@ function AdCard({
           onChange={(v) => onChange({ preco: v })}
         />
         <Field
-          label="📥 Retorno líquido/unidade (R$)"
-          value={ad.retorno}
-          onChange={(v) => onChange({ retorno: v })}
-        />
-        <Field
           label="💰 Custo/unidade (R$)"
           value={ad.custo}
           onChange={(v) => onChange({ custo: v })}
         />
+        <div className="field-group">
+          <label>
+            📥 Retorno líq./unidade (R$)
+            {retornoManual && (
+              <button
+                type="button"
+                onClick={() => {
+                  setRetornoManual(false);
+                  onChange({ retorno: calcRetorno(ad.preco, ad.custo) });
+                }}
+                style={{
+                  marginLeft: 6,
+                  fontSize: ".7rem",
+                  background: "none",
+                  border: "none",
+                  color: "var(--muted)",
+                  cursor: "pointer",
+                  padding: 0,
+                }}
+              >
+                ↺
+              </button>
+            )}
+          </label>
+          <input
+            type="number"
+            min="0"
+            step="0.01"
+            placeholder="0,00"
+            value={ad.retorno}
+            onChange={(e) => {
+              setRetornoManual(true);
+              onChange({ retorno: e.target.value });
+            }}
+          />
+        </div>
         <Field
           label="🛒 Nº de vendas"
           value={ad.vendas}
@@ -470,9 +765,18 @@ function AdCard({
         />
         <Field
           label="📢 Gasto com Ads (R$)"
-          value={ad.ads}
+          value="0"
           onChange={(v) => onChange({ ads: v })}
         />
+        <div className="field-group">
+          <label>🏷️ Código MLB</label>
+          <input
+            type="text"
+            placeholder="MLB1234…"
+            value={ad.mlb ?? ""}
+            onChange={(e) => onChange({ mlb: e.target.value })}
+          />
+        </div>
       </div>
     </div>
   );
