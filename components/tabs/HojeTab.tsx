@@ -765,7 +765,7 @@ function AdCard({
         />
         <Field
           label="📢 Gasto com Ads (R$)"
-          value="0"
+          value={ad.ads}
           onChange={(v) => onChange({ ads: v })}
         />
         <div className="field-group">
