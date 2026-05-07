@@ -13,6 +13,7 @@ import {
   computeSummary,
   fmtBRL,
   formatDateBR,
+  parseBRNumber,
   todayStr,
   totalCustosDia,
 } from "@/lib/domain/calc";
@@ -22,9 +23,11 @@ import Modal from "@/components/Modal";
 import { ProductModal } from "@/components/tabs/EstoqueTab";
 import type { UserData } from "@/components/useUserData";
 
+// `retorno` = liquido por unidade ja descontado o custo do produto.
+// Auto-calc: preco - custo. Usuario pode ajustar manualmente.
 function calcRetorno(preco: string, custo: string): string {
-  const p = parseFloat(preco) || 0;
-  const c = parseFloat(custo) || 0;
+  const p = parseBRNumber(preco);
+  const c = parseBRNumber(custo);
   return p ? (p - c).toFixed(2) : "";
 }
 
@@ -643,7 +646,7 @@ function LancarVendaModal({
               type="number"
               min="0"
               step="0.01"
-              placeholder="0,00"
+              placeholder="0.00"
               value={ads}
               onChange={(e) => setAds(e.target.value)}
             />
@@ -749,7 +752,7 @@ function AdCard({
             type="number"
             min="0"
             step="0.01"
-            placeholder="0,00"
+            placeholder="0.00"
             value={ad.retorno}
             onChange={(e) => {
               setRetornoManual(true);
@@ -800,7 +803,7 @@ function Field({
         type="number"
         min="0"
         step={step ?? "0.01"}
-        placeholder="0,00"
+        placeholder="0.00"
         value={value}
         onChange={(e) => onChange(e.target.value)}
       />

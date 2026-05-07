@@ -10,7 +10,7 @@
   --radius:12px;--shadow:0 4px 24px rgba(0,0,0,0.4);
 }
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;min-height:100vh;padding:24px 16px 80px}
+body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;min-height:100vh}
 header{text-align:center;margin-bottom:28px}
 header h1{font-size:clamp(1.4rem,4vw,2rem);font-weight:700}
 header h1 .logo-text{background:linear-gradient(135deg,#4f8ef7,#a78bfa);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;display:inline-block}
@@ -211,6 +211,25 @@ canvas.chart-canvas{width:100%!important;height:100%!important}
 ::-webkit-scrollbar{width:6px;height:6px}
 ::-webkit-scrollbar-track{background:var(--bg)}
 ::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+
+/* Sidebar layout */
+.app-sidebar{display:flex}
+.sidebar-toggle{display:none}
+@media(min-width:721px){
+  .app-sidebar{left:0!important}
+}
+@media(max-width:720px){
+  .app-sidebar{left:-220px}
+  .app-main{margin-left:0!important}
+  .sidebar-toggle{display:inline-flex!important}
+  .dashboard-main-grid,.dashboard-bottom-grid{grid-template-columns:1fr!important}
+}
+
+/* Dashboard grid responsive */
+@media(max-width:900px){
+  .dashboard-main-grid{grid-template-columns:1fr!important}
+  .dashboard-bottom-grid{grid-template-columns:1fr!important}
+}
 
 @media(max-width:520px){
   .top-actions{flex-direction:column;align-items:stretch}

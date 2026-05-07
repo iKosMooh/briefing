@@ -150,29 +150,14 @@ export function watchDays(
   uid: string,
   cb: (days: ArchivedDay[]) => void,
 ): () => void {
-  let shared: ArchivedDay[] = [];
-  let legacy: ArchivedDay[] = [];
-  const emit = () => {
-    cb(
-      mergeByKey(legacy, shared, (day) => day.date).sort((a, b) =>
-        b.date.localeCompare(a.date),
-      ),
-    );
-  };
-
-  const watchShared = onSnapshot(query(sCol("dias"), orderBy("date", "desc")), (snap) => {
-    shared = snap.docs.map((d) => d.data() as ArchivedDay);
-    emit();
-  });
-  const watchLegacy = onSnapshot(query(uCol(uid, "dias"), orderBy("date", "desc")), (snap) => {
-    legacy = snap.docs.map((d) => d.data() as ArchivedDay);
-    emit();
-  });
-
-  return () => {
-    watchShared();
-    watchLegacy();
-  };
+  // Only watch the user-scoped subcollection. The shared "dias" collection has
+  // no uid filter, so it leaks other users' archived days into this view.
+  return onSnapshot(
+    query(uCol(uid, "dias"), orderBy("date", "desc")),
+    (snap) => {
+      cb(snap.docs.map((d) => d.data() as ArchivedDay));
+    },
+  );
 }
 
 // ── Goals (legacy single-doc) ─────────────────────────────────

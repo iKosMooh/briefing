@@ -280,7 +280,7 @@ export function ProductModal({
                     type="number"
                     min="0"
                     step="0.01"
-                    placeholder="0,00"
+                    placeholder="0.00"
                     value={p.preco}
                     onChange={(e) => set({ preco: e.target.value })}
                 />
@@ -292,7 +292,7 @@ export function ProductModal({
                     type="number"
                     min="0"
                     step="0.01"
-                    placeholder="0,00"
+                    placeholder="0.00"
                     value={p.custo}
                     onChange={(e) => set({ custo: e.target.value })}
                 />
@@ -325,7 +325,7 @@ export function ProductModal({
                     type="number"
                     min="0"
                     step="0.01"
-                    placeholder="0,00"
+                    placeholder="0.00"
                     value={p.retorno}
                     onChange={(e) => {
                         setRetornoManual(true);

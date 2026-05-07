@@ -501,7 +501,7 @@ function EditField({
         type={step === "1" || label.includes("MLB") ? (label.includes("MLB") ? "text" : "number") : "number"}
         min="0"
         step={step ?? "0.01"}
-        placeholder="0,00"
+        placeholder="0.00"
         value={value}
         onChange={(e) => onChange(e.target.value)}
       />
