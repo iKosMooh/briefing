@@ -90,7 +90,7 @@ export function computeAd(a: Listing): ComputedAd {
   const custo = parseBRNumber(a.custo);
   const vendas = parseInt(a.vendas, 10) || 0;
   const adsp = parseBRNumber(a.ads);
-  const faturamento = preco * vendas;
+  const faturamento = retorno * vendas;
   const cmv = custo * vendas;
   const bruto = faturamento - cmv;
   const liquido = bruto - adsp;
