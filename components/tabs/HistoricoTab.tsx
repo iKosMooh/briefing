@@ -53,7 +53,10 @@ export default function HistoricoTab({
     return true;
   });
 
-  const chartDays = filtered;
+  const chartDays = filtered.map((day) => {
+    const s = computeSummary(day.raw ?? []);
+    return { ...day, ...s };
+  });
 
   if (data.days.length === 0) {
     return (
@@ -258,6 +261,8 @@ function DayCard({
   onEdit: () => void;
   onDelete: () => void;
 }) {
+  const computed = computeSummary(day.raw ?? []);
+
   return (
     <div className={`history-day ${open ? "open" : ""}`}>
       <div
@@ -275,17 +280,17 @@ function DayCard({
         </div>
         <div className="history-day-pills">
           <span className="pill pill-green">
-            💵 {fmtBRL(day.totalFaturamento || 0)}
+            💵 {fmtBRL(computed.totalFaturamento)}
           </span>
-          <span className={`pill ${day.totalLiquido >= 0 ? "pill-green" : "pill-red"}`}>
-            ✅ {fmtBRL(day.totalLiquido)}
+          <span className={`pill ${computed.totalLiquido >= 0 ? "pill-green" : "pill-red"}`}>
+            ✅ {fmtBRL(computed.totalLiquido)}
           </span>
-          {day.totalRoas !== null ? (
-            <span className="pill pill-yellow">📢 {day.totalRoas.toFixed(2)}x</span>
+          {computed.totalRoas !== null ? (
+            <span className="pill pill-yellow">📢 {computed.totalRoas.toFixed(2)}x</span>
           ) : (
             <span className="pill">📢 —</span>
           )}
-          <span className="pill">{(day.ads || []).length} anúncios</span>
+          <span className="pill">{computed.ads.length} anúncios</span>
         </div>
         <div className="history-day-actions">
           <button
@@ -322,22 +327,22 @@ function DayCard({
                 </tr>
               </thead>
               <tbody>
-                {(day.ads || []).map((a, i) => (
+                {computed.ads.map((a, i) => (
                   <tr key={i}>
                     <td className="td-name">{a.name}</td>
-                    <td className="positive">{fmtBRL(a.faturamento || 0)}</td>
-                    <td className="negative">{fmtBRL(a.cmv || 0)}</td>
+                    <td className="positive">{fmtBRL(a.faturamento)}</td>
+                    <td className="negative">{fmtBRL(a.cmv)}</td>
                     <td className={colorClass(a.bruto)}>{fmtBRL(a.bruto)}</td>
                     <td className="negative">{fmtBRL(a.ads)}</td>
                     <td className={colorClass(a.liquido)}>{fmtBRL(a.liquido)}</td>
                     <td
                       className={
-                        (a.margem || 0) >= 10 ? "positive"
-                          : (a.margem || 0) > 0 ? "neutral"
+                        a.margem >= 10 ? "positive"
+                          : a.margem > 0 ? "neutral"
                             : "negative"
                       }
                     >
-                      {(a.margem || 0).toFixed(1)}%
+                      {a.margem.toFixed(1)}%
                     </td>
                     <td
                       className={
@@ -357,33 +362,33 @@ function DayCard({
             <div className="summary-card card-receita">
               <div className="card-label">💵 Faturamento</div>
               <div className="card-value positive">
-                {fmtBRL(day.totalFaturamento || 0)}
+                {fmtBRL(computed.totalFaturamento)}
               </div>
             </div>
             <div className="summary-card card-bruto">
               <div className="card-label">💼 L.Bruto</div>
-              <div className={`card-value ${colorClass(day.totalBruto)}`}>
-                {fmtBRL(day.totalBruto)}
+              <div className={`card-value ${colorClass(computed.totalBruto)}`}>
+                {fmtBRL(computed.totalBruto)}
               </div>
             </div>
             <div className="summary-card card-liquido">
               <div className="card-label">✅ L.Líquido</div>
-              <div className={`card-value ${colorClass(day.totalLiquido)}`}>
-                {fmtBRL(day.totalLiquido)}
+              <div className={`card-value ${colorClass(computed.totalLiquido)}`}>
+                {fmtBRL(computed.totalLiquido)}
               </div>
               <div className="card-sub">
-                Margem: {(day.totalMargem || 0).toFixed(1)}%
+                Margem: {computed.totalMargem.toFixed(1)}%
               </div>
             </div>
             <div className="summary-card card-roas">
               <div className="card-label">📢 ROAS</div>
               <div
-                className={`card-value ${day.totalRoas !== null
-                    ? day.totalRoas >= 1 ? "positive" : "negative"
+                className={`card-value ${computed.totalRoas !== null
+                    ? computed.totalRoas >= 1 ? "positive" : "negative"
                     : "neutral"
                   }`}
               >
-                {day.totalRoas !== null ? `${day.totalRoas.toFixed(2)}x` : "—"}
+                {computed.totalRoas !== null ? `${computed.totalRoas.toFixed(2)}x` : "—"}
               </div>
             </div>
           </div>

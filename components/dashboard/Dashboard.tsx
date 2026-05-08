@@ -4,8 +4,10 @@ import { useMemo, useState } from "react";
 import {
   computeSummary,
   fmtBRL,
+  formatDateBR,
   mesAtual,
   todayStr,
+  yesterdayStr,
   totalCustosDia,
   totalCustosMes,
 } from "@/lib/domain/calc";
@@ -23,16 +25,35 @@ type Props = {
 
 export default function Dashboard({ data }: Props) {
   const [chartWindow, setChartWindow] = useState<7 | 15 | 30>(15);
+  const [dayMode, setDayMode] = useState<"hoje" | "ontem" | "custom">("hoje");
+  const [customDate, setCustomDate] = useState("");
 
-  // Today's draft summary
-  const todaySummary = useMemo(
-    () => computeSummary(data.draft?.ads ?? []),
-    [data.draft]
+  const recomputedDays = useMemo(
+    () => data.days.map((day) => ({ ...day, ...computeSummary(day.raw ?? []) })),
+    [data.days]
   );
 
+  const selectedDate =
+    dayMode === "hoje"
+      ? todayStr()
+      : dayMode === "ontem"
+        ? yesterdayStr()
+        : customDate;
+
+  const selectedArchivedDay =
+    dayMode !== "hoje"
+      ? (recomputedDays.find((d) => d.date === selectedDate) ?? null)
+      : null;
+
+  const todaySummary = useMemo(() => {
+    if (dayMode === "hoje") return computeSummary(data.draft?.ads ?? []);
+    if (selectedArchivedDay) return computeSummary(selectedArchivedDay.raw ?? []);
+    return computeSummary([]);
+  }, [dayMode, data.draft, selectedArchivedDay]);
+
   const custosDia = useMemo(
-    () => totalCustosDia(data.costs, todayStr()),
-    [data.costs]
+    () => totalCustosDia(data.costs, selectedDate || todayStr()),
+    [data.costs, selectedDate]
   );
 
   const custosMes = useMemo(
@@ -40,14 +61,12 @@ export default function Dashboard({ data }: Props) {
     [data.costs]
   );
 
-  // Lucro Liquido Real = sum of all per-ad (retorno_unit * vendas - ads) minus daily operational cost
   const lucroLiquidoFinal = todaySummary.totalLiquido - custosDia;
 
   // Total revenue = faturamento from draft
   const faturamentoBruto = todaySummary.totalFaturamento;
 
-  // Total gastos = CMV + Ads + custos do dia. `retorno` ja eh liquido por
-  // unidade (preco - custo), entao taxas ML nao entram aqui.
+  // Total gastos = CMV + Ads + custos do dia.
   const totalGastos =
     todaySummary.totalCMV + todaySummary.totalAds + custosDia;
 
@@ -73,8 +92,61 @@ export default function Dashboard({ data }: Props) {
   // Doughnut nao mostra taxas ML separado pois retorno ja vem liquido.
   const taxasML = 0;
 
+  const availableDates = [...data.days]
+    .sort((a, b) => b.date.localeCompare(a.date));
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+
+      {/* ── Day selector ── */}
+      <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+        <span style={{ color: "var(--muted)", fontSize: ".82rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: ".05em" }}>
+          Visualizar:
+        </span>
+        {(["hoje", "ontem", "custom"] as const).map((mode) => (
+          <button
+            key={mode}
+            type="button"
+            className={`btn btn-sm ${dayMode === mode ? "btn-primary" : "btn-ghost"}`}
+            onClick={() => setDayMode(mode)}
+          >
+            {mode === "hoje" ? "📅 Hoje" : mode === "ontem" ? "⬅️ Ontem" : "🗓 Selecionar data"}
+          </button>
+        ))}
+        {dayMode === "custom" && (
+          <select
+            value={customDate}
+            onChange={(e) => setCustomDate(e.target.value)}
+            style={{
+              background: "var(--surface)",
+              border: "1px solid var(--border)",
+              borderRadius: "var(--radius)",
+              color: "var(--fg)",
+              padding: "4px 10px",
+              fontSize: ".85rem",
+              cursor: "pointer",
+            }}
+          >
+            <option value="">Escolha um dia…</option>
+            {availableDates.map((d) => (
+              <option key={d.date} value={d.date}>
+                {formatDateBR(d.date)}
+              </option>
+            ))}
+          </select>
+        )}
+        {dayMode === "custom" && customDate && !selectedArchivedDay && (
+          <span style={{ color: "var(--red)", fontSize: ".8rem" }}>Nenhum dado para esta data.</span>
+        )}
+        {dayMode !== "hoje" && selectedArchivedDay && (
+          <span style={{ color: "var(--muted)", fontSize: ".8rem" }}>
+            Exibindo: {formatDateBR(selectedArchivedDay.date)}
+          </span>
+        )}
+        {dayMode === "ontem" && !selectedArchivedDay && (
+          <span style={{ color: "var(--red)", fontSize: ".8rem" }}>Ontem sem dados arquivados.</span>
+        )}
+      </div>
 
       {/* ── Row 1: 4 KPI Cards ── */}
       <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
@@ -126,7 +198,7 @@ export default function Dashboard({ data }: Props) {
         >
           Ontem vs Hoje
         </div>
-        <YesterdayVsToday days={data.days} todayLiquido={lucroLiquidoFinal} />
+        <YesterdayVsToday days={recomputedDays} todayLiquido={lucroLiquidoFinal} />
       </section>
 
       {/* ── Row 3: Line Chart + Top 3 Ads ── */}
@@ -182,7 +254,7 @@ export default function Dashboard({ data }: Props) {
               ))}
             </div>
           </div>
-          <RevenueLineChart days={data.days} windowDays={chartWindow} />
+          <RevenueLineChart days={recomputedDays} windowDays={chartWindow} />
         </section>
 
         {/* Top 3 Ads */}
@@ -294,7 +366,7 @@ export default function Dashboard({ data }: Props) {
           </div>
           <GoalsProgressBars
             goals={goals}
-            days={data.days}
+            days={recomputedDays}
             liveRevenue={faturamentoBruto}
           />
         </section>

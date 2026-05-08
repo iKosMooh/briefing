@@ -92,9 +92,7 @@ export function computeAd(a: Listing): ComputedAd {
   const adsp = parseBRNumber(a.ads);
   const faturamento = preco * vendas;
   const cmv = custo * vendas;
-  // `retorno` ja eh liquido por unidade (preco - custo), entao o bruto
-  // do anuncio eh retorno * vendas. NAO subtrair custo de novo.
-  const bruto = retorno * vendas;
+  const bruto = faturamento - cmv;
   const liquido = bruto - adsp;
   const margem = faturamento > 0 ? (liquido / faturamento) * 100 : 0;
   const roas = adsp > 0 ? faturamento / adsp : null;
